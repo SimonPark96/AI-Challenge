@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:kpi": "tsx scripts/verify-kpi-login.ts",
+    "verify:kprc": "tsx scripts/verify-kprc-search.ts",
+    "verify:cmpi": "tsx scripts/verify-cmpi-search.ts"
   },
   "dependencies": {
     "next": "16.2.4",
@@ -20,7 +23,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "playwright": "^1.59.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
