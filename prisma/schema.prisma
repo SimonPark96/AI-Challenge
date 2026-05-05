@@ -114,6 +114,43 @@ model Quotation {
   @@index([priceSummaryId])
 }
 
+// 노임단가 — KPI 의 wage_list 에서 카테고리별로 가져오는 직종별 일당 표.
+// 자재 PriceHistory 와 별도 — 매칭 흐름이 다르고, 단위/기준 필드가 직종 특화임.
+model WageRun {
+  id        Int      @id @default(autoincrement())
+  source    String   // "kpi-wage"
+  cateCd    String   // "701111" 등
+  sourceUrl String
+  fetchedAt DateTime
+  createdAt DateTime @default(now())
+
+  wages WageHistory[]
+
+  @@index([source, fetchedAt])
+  @@index([cateCd])
+}
+
+model WageHistory {
+  id          Int      @id @default(autoincrement())
+  wageRunId   Int
+  cateCd      String
+  jobName     String  // 직종명
+  price       Float?  // 단가 (콤마 제거 후 숫자, KRW)
+  unit        String? // 단위 (보통 "일")
+  basis       String? // 기준 (예: "2026년 01월")
+  description String? // 해설
+  embedding   Json?   // text-embedding-3-small 1536차원 (number[]) — 견적 매칭용
+  fetchedAt   DateTime
+  createdAt   DateTime @default(now())
+
+  wageRun      WageRun         @relation(fields: [wageRunId], references: [id], onDelete: Cascade)
+  matchedItems QuotationItem[]
+
+  @@index([wageRunId])
+  @@index([jobName])
+  @@index([cateCd, fetchedAt])
+}
+
 model QuotationItem {
   id          Int    @id @default(autoincrement())
   quotationId Int
@@ -125,16 +162,20 @@ model QuotationItem {
   unitPrice   Float?
   totalPrice  Float?
 
-  // 매칭/비교 결과
-  matchedPriceId    Int?
+  // 매칭/비교 결과 — 자재 또는 노임 둘 중 한쪽만 채워짐 (matchedSource 로 식별)
+  matchedSource     String? // "price" | "wage" — 어떤 풀에서 매칭됐는지
+  matchedPriceId    Int? // 자재 단가(PriceHistory) 매칭 시
+  matchedWageId     Int? // 노임 단가(WageHistory) 매칭 시
   matchedConfidence Float? // 0..1
-  marketPrice       Float? // 매칭된 PriceHistory.price (비교용)
-  marketRegion      String?
+  marketPrice       Float? // 매칭된 단가 (자재 또는 노임)
+  marketRegion      String? // 자재: 지역 / 노임: 카테고리 라벨 (공사부문/기타직종)
   deviationPct      Float? // (unitPrice - marketPrice) / marketPrice * 100
 
   quotation    Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   matchedPrice PriceHistory? @relation(fields: [matchedPriceId], references: [id], onDelete: SetNull)
+  matchedWage  WageHistory?  @relation(fields: [matchedWageId], references: [id], onDelete: SetNull)
 
   @@index([quotationId])
   @@index([matchedPriceId])
+  @@index([matchedWageId])
 }

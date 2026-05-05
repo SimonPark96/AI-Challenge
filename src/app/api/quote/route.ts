@@ -5,8 +5,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const STATUS_GROUPS: Record<string, string[]> = {
-  inProgress: ["pending", "parsing", "matching"],
-  completed: ["compared"],
+  // compared 는 분석은 끝났지만 사용자가 결과 확정을 누르지 않은 상태 → 진행 중으로 분류.
+  inProgress: ["pending", "parsing", "matching", "compared"],
+  completed: ["confirmed"],
   failed: ["failed"],
 };
 

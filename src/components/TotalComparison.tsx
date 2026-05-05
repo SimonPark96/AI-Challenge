@@ -13,15 +13,18 @@ interface SummaryRef {
   sourceVia: string | null;
 }
 
+interface CostBreakdown {
+  materialCost: number | null;
+  laborCost: number | null;
+  expenseCost: number | null;
+}
+
 interface Props {
   partnerTotal: number | null;
-  partnerCostBreakdown: {
-    materialCost: number | null;
-    laborCost: number | null;
-    expenseCost: number | null;
-  };
+  partnerCostBreakdown: CostBreakdown;
   summary: SummaryRef | null;
   itemMarketTotal: number | null;
+  itemMarketBreakdown: CostBreakdown;
   itemTotalCount: number;
   itemMatchedCount: number;
 }
@@ -48,10 +51,10 @@ function calcDeviation(
 }
 
 const toneClasses: Record<Tone, string> = {
-  high: "text-rose-600 bg-rose-50 border-rose-200",
-  low: "text-blue-600 bg-blue-50 border-blue-200",
-  ok: "text-emerald-600 bg-emerald-50 border-emerald-200",
-  neutral: "text-slate-500 bg-slate-50 border-slate-200",
+  high: "text-rose-700 bg-rose-50 border-rose-200",
+  low: "text-blue-700 bg-blue-50 border-blue-200",
+  ok: "text-emerald-700 bg-emerald-50 border-emerald-200",
+  neutral: "text-slate-600 bg-slate-50 border-slate-200",
 };
 
 const toneLabels: Record<Tone, string> = {
@@ -66,6 +69,7 @@ export function TotalComparison({
   partnerCostBreakdown,
   summary,
   itemMarketTotal,
+  itemMarketBreakdown,
   itemTotalCount,
   itemMatchedCount,
 }: Props) {
@@ -97,16 +101,34 @@ export function TotalComparison({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <BaseCard label="협력사 합계" value={fmt(partnerTotal)} />
-        <DevCard
+        <CompositeCard
+          label="협력사 합계"
+          total={partnerTotal}
+          breakdown={partnerCostBreakdown}
+          mode="base"
+        />
+        <CompositeCard
           label="매칭 자료 합계"
-          value={fmt(summary?.totalCost ?? null)}
+          total={summary?.totalCost ?? null}
+          breakdown={
+            summary
+              ? {
+                  materialCost: summary.materialCost,
+                  laborCost: summary.laborCost,
+                  expenseCost: summary.expenseCost,
+                }
+              : { materialCost: null, laborCost: null, expenseCost: null }
+          }
+          mode="dev"
           dev={summaryDev}
           fallback={summary ? null : "매칭 자료 없음"}
+          partnerBreakdown={partnerCostBreakdown}
         />
-        <DevCard
+        <CompositeCard
           label="세부 항목별 단가 합계"
-          value={fmt(itemMarketTotal)}
+          total={itemMarketTotal}
+          breakdown={itemMarketBreakdown}
+          mode="dev"
           dev={itemDev}
           fallback={
             itemTotalCount === 0
@@ -117,60 +139,68 @@ export function TotalComparison({
           }
           subText={
             itemTotalCount > 0
-              ? `매칭 ${itemMatchedCount}/${itemTotalCount}건의 시장단가 × 수량 합산`
+              ? `매칭 ${itemMatchedCount}/${itemTotalCount}건의 시장단가 × 수량 합산 — 재료비=자재 매칭, 노무비=노임 매칭, 경비는 라인에서 도출 불가`
               : undefined
           }
+          partnerBreakdown={partnerCostBreakdown}
         />
       </div>
-
-      {summary && (
-        <div className="grid grid-cols-3 gap-4 text-sm border-t border-slate-100 pt-4">
-          <BreakdownPair
-            label="재료비"
-            partner={partnerCostBreakdown.materialCost}
-            summary={summary.materialCost}
-          />
-          <BreakdownPair
-            label="노무비"
-            partner={partnerCostBreakdown.laborCost}
-            summary={summary.laborCost}
-          />
-          <BreakdownPair
-            label="경비"
-            partner={partnerCostBreakdown.expenseCost}
-            summary={summary.expenseCost}
-          />
-        </div>
-      )}
     </section>
   );
 }
 
-function BaseCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 px-4 py-3">
-      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
-      <div className="text-2xl font-bold text-slate-800 mt-1">{value}</div>
-      <div className="text-[11px] text-slate-400 mt-1">기준값</div>
-    </div>
-  );
-}
-
-function DevCard({
-  label,
-  value,
-  dev,
-  fallback,
-  subText,
-}: {
+interface CardProps {
   label: string;
-  value: string;
-  dev: number | null;
+  total: number | null;
+  breakdown: CostBreakdown;
+  mode: "base" | "dev";
+  dev?: number | null;
   fallback?: string | null;
   subText?: string;
-}) {
+  /** 매칭/세부 카드에서 라인별 재료비·노무비·경비 편차(% vs 협력사) 계산용 */
+  partnerBreakdown?: CostBreakdown;
+}
+
+function CompositeCard({
+  label,
+  total,
+  breakdown,
+  mode,
+  dev = null,
+  fallback,
+  subText,
+  partnerBreakdown,
+}: CardProps) {
+  if (fallback) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-300 px-4 py-3 bg-slate-50/50 min-h-[180px]">
+        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+          {label}
+        </div>
+        <div className="text-sm text-slate-400 mt-2">{fallback}</div>
+      </div>
+    );
+  }
+
+  if (mode === "base") {
+    return (
+      <div className="rounded-lg border border-slate-300 px-4 py-3 bg-white">
+        <div className="text-[11px] uppercase tracking-wide text-slate-500">
+          {label}
+        </div>
+        <div className="text-2xl font-bold text-slate-800 mt-1">
+          {fmt(total)}
+        </div>
+        <div className="text-[11px] text-slate-400 mt-1">기준값</div>
+
+        <BreakdownList
+          breakdown={breakdown}
+          tone="neutral"
+        />
+      </div>
+    );
+  }
+
   const tone = deviationTone(dev);
   const ToneIcon =
     tone === "high"
@@ -179,69 +209,123 @@ function DevCard({
         ? ArrowDownRight
         : Minus;
 
-  if (fallback) {
-    return (
-      <div className="rounded-lg border border-dashed border-slate-300 px-4 py-3 bg-slate-50/50">
-        <div className="text-[11px] uppercase tracking-wide text-slate-500">
-          {label}
-        </div>
-        <div className="text-sm text-slate-400 mt-1">{fallback}</div>
-      </div>
-    );
-  }
-
   return (
     <div className={`rounded-lg border px-4 py-3 ${toneClasses[tone]}`}>
       <div className="text-[11px] uppercase tracking-wide opacity-70">
         {label}
       </div>
-      <div className="text-2xl font-bold mt-1 text-slate-800">{value}</div>
+      <div className="text-2xl font-bold mt-1 text-slate-800">{fmt(total)}</div>
       <div className="flex items-center gap-1.5 mt-1 text-xs">
         <ToneIcon size={14} />
         <span className="font-mono">
-          {dev != null
-            ? `${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
-            : "-"}
+          {dev != null ? `${dev > 0 ? "+" : ""}${dev.toFixed(1)}%` : "-"}
         </span>
         <span className="opacity-80">vs 협력사</span>
       </div>
-      {subText && (
-        <div className="text-[11px] mt-1 opacity-70">{subText}</div>
-      )}
       <div className="text-[11px] mt-1 opacity-80">{toneLabels[tone]}</div>
+
+      <BreakdownList
+        breakdown={breakdown}
+        tone={tone}
+        partnerBreakdown={partnerBreakdown}
+      />
+
+      {subText && (
+        <div className="text-[11px] mt-2 opacity-70 leading-relaxed">
+          {subText}
+        </div>
+      )}
     </div>
   );
 }
 
-function BreakdownPair({
+function BreakdownList({
+  breakdown,
+  tone,
+  partnerBreakdown,
+}: {
+  breakdown: CostBreakdown;
+  tone: Tone;
+  partnerBreakdown?: CostBreakdown;
+}) {
+  const items: Array<{
+    label: string;
+    value: number | null;
+    partner: number | null;
+  }> = [
+    {
+      label: "재료비",
+      value: breakdown.materialCost,
+      partner: partnerBreakdown?.materialCost ?? null,
+    },
+    {
+      label: "노무비",
+      value: breakdown.laborCost,
+      partner: partnerBreakdown?.laborCost ?? null,
+    },
+    {
+      label: "경비",
+      value: breakdown.expenseCost,
+      partner: partnerBreakdown?.expenseCost ?? null,
+    },
+  ];
+
+  return (
+    <div className="mt-3 pt-3 border-t border-current/20 space-y-1">
+      {items.map((it) => (
+        <BreakdownRow
+          key={it.label}
+          label={it.label}
+          value={it.value}
+          partner={it.partner}
+          showDeviation={!!partnerBreakdown}
+          tone={tone}
+        />
+      ))}
+    </div>
+  );
+}
+
+function BreakdownRow({
   label,
+  value,
   partner,
-  summary,
+  showDeviation,
+  tone,
 }: {
   label: string;
+  value: number | null;
   partner: number | null;
-  summary: number | null;
+  showDeviation: boolean;
+  tone: Tone;
 }) {
-  const diff = calcDeviation(partner, summary);
-  const diffCls =
-    diff == null
+  // 협력사 자기 자신과의 비교는 의미 없으므로 base 모드에선 dev 숨김
+  const dev = showDeviation ? calcDeviation(partner, value) : null;
+  const devCls =
+    dev == null
       ? "text-slate-400"
-      : diff > 10
-        ? "text-rose-600"
-        : diff < -10
-          ? "text-blue-600"
-          : "text-emerald-600";
+      : dev > 10
+        ? "text-rose-700"
+        : dev < -10
+          ? "text-blue-700"
+          : "text-emerald-700";
   return (
-    <div>
-      <div className="text-[11px] text-slate-400">{label}</div>
-      <div className="text-sm text-slate-700 mt-0.5">
-        협력사 <span className="font-mono">{fmt(partner)}</span>
-      </div>
-      <div className="text-sm text-slate-500 mt-0.5">
-        매칭 <span className="font-mono">{fmt(summary)}</span>
-      </div>
-      <div className={`text-xs mt-1 font-mono ${diffCls}`}>
-        {diff != null ? `${diff > 0 ? "+" : ""}${diff.toFixed(1)}%` : "-"}
+    <div className="flex items-center justify-between text-xs">
+      <span
+        className={
+          tone === "neutral" ? "text-slate-500" : "text-slate-700 opacity-90"
+        }
+      >
+        {label}
+      </span>
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-sm text-slate-800">{fmt(value)}</span>
+        {showDeviation && dev != null && (
+          <span className={`font-mono text-[11px] ${devCls}`}>
+            {dev > 0 ? "+" : ""}
+            {dev.toFixed(1)}%
+          </span>
+        )}
       </div>
     </div>
   );

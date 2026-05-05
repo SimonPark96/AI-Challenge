@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { DashboardSummary } from "@/components/dashboard/DashboardSummary";
-import { QuoteList } from "@/components/dashboard/QuoteList";
+import { DashboardClient } from "@/components/dashboard/DashboardClient";
+import { AiChatBot } from "@/components/chat/AiChatBot";
 
 export default function DashboardPage() {
   return (
@@ -21,8 +21,9 @@ export default function DashboardPage() {
         </Link>
       </header>
 
-      <DashboardSummary />
-      <QuoteList />
+      <DashboardClient />
+
+      <AiChatBot mode="search" />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { ChevronLeft, CheckCircle2, FileSpreadsheet, Send } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { StepIndicator } from "@/components/StepIndicator";
 import { QuoteSummary } from "@/components/QuoteSummary";
+import { ConfirmAction } from "@/components/ConfirmAction";
 
 export const dynamic = "force-dynamic";
 
@@ -140,11 +141,9 @@ export default async function ConfirmByIdPage({
           외부 시스템 연동은 추후 단계에서 구현 예정입니다.
         </p>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <ActionCard
-            icon={<CheckCircle2 size={16} />}
-            title="검토 결과 확정"
-            desc="현재 매칭/편차/AI 코멘트를 최종 결과로 확정"
-            disabled
+          <ConfirmAction
+            quotationId={quotation.id}
+            status={quotation.status}
           />
           <ActionCard
             icon={<FileSpreadsheet size={16} />}

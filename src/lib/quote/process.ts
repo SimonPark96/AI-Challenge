@@ -52,7 +52,9 @@ export async function processQuote(
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
+          matchedSource: match.source === "none" ? null : match.source,
           matchedPriceId: match.matchedPriceId,
+          matchedWageId: match.matchedWageId,
           matchedConfidence: match.matchedConfidence,
           marketPrice: match.marketPrice,
           marketRegion: match.marketRegion,
@@ -71,7 +73,7 @@ export async function processQuote(
     });
 
     const matchedCount = itemsData.filter(
-      (it) => it.matchedPriceId !== null
+      (it) => it.matchedPriceId !== null || it.matchedWageId !== null
     ).length;
 
     return {

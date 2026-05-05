@@ -3,6 +3,16 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 
+function ymd(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "-";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 interface PriceRow {
   id: number;
   scrapeRunId: number;
@@ -29,7 +39,7 @@ export function DbSearch() {
     setLoading(true);
     setCount(null);
     try {
-      const params = new URLSearchParams({ limit: "200" });
+      const params = new URLSearchParams({ limit: "10000" });
       if (source) params.set("source", source);
       if (itemName.trim()) params.set("itemName", itemName.trim());
       if (region.trim()) params.set("region", region.trim());
@@ -45,9 +55,9 @@ export function DbSearch() {
   return (
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-        <Search size={18} className="text-blue-500" /> PriceHistory 검색
+        <Search size={18} className="text-blue-500" /> 자재 단가 검색
         <span className="text-[11px] font-normal text-slate-400">
-          (스크래핑 — 자재별)
+          (외부 사이트 스크래핑 결과)
         </span>
       </h2>
 
@@ -67,7 +77,7 @@ export function DbSearch() {
         <input
           value={itemName}
           onChange={(e) => setItemName(e.target.value)}
-          placeholder="품명 (부분일치)"
+          placeholder="품명 (부분일치, 공백 무시)"
           className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-[200px] bg-white text-slate-900 placeholder:text-slate-400"
           onKeyDown={(e) => e.key === "Enter" && search()}
         />
@@ -101,6 +111,9 @@ export function DbSearch() {
               <th className="text-left p-2 font-medium text-slate-600">단위</th>
               <th className="text-left p-2 font-medium text-slate-600">지역</th>
               <th className="text-right p-2 font-medium text-slate-600">단가</th>
+              <th className="text-left p-2 font-medium text-slate-600 w-24">
+                수집일
+              </th>
               <th className="text-center p-2 font-medium text-slate-600">embed</th>
             </tr>
           </thead>
@@ -119,6 +132,9 @@ export function DbSearch() {
                 <td className="p-2 text-right font-mono">
                   {p.price !== null ? p.price.toLocaleString() : "-"}
                 </td>
+                <td className="p-2 text-xs font-mono text-slate-600">
+                  {ymd(p.fetchedAt)}
+                </td>
                 <td className="p-2 text-center text-xs">
                   {p.hasEmbedding ? (
                     <span className="text-emerald-600">✓</span>
@@ -130,14 +146,14 @@ export function DbSearch() {
             ))}
             {rows.length === 0 && count !== null && (
               <tr>
-                <td colSpan={8} className="p-4 text-center text-slate-400">
+                <td colSpan={9} className="p-4 text-center text-slate-400">
                   결과 없음
                 </td>
               </tr>
             )}
             {count === null && (
               <tr>
-                <td colSpan={8} className="p-4 text-center text-slate-400">
+                <td colSpan={9} className="p-4 text-center text-slate-400">
                   조회 버튼을 눌러주세요
                 </td>
               </tr>

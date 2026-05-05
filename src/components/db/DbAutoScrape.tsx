@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Repeat, Play, Square, RefreshCw } from "lucide-react";
+import { Repeat, Play, Square, Loader2 } from "lucide-react";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface CycleResultItem {
   source: string;
   keyword: string;
   ok: boolean;
   scrapeRunId?: number;
+  wageRunIds?: number[];
   normalizedCount?: number;
   error?: string;
 }
@@ -22,6 +24,8 @@ interface CycleSummary {
   committed?: boolean;
   purgedScrapeRuns?: number;
   rolledBackScrapeRuns?: number;
+  purgedWageRuns?: number;
+  rolledBackWageRuns?: number;
   results: CycleResultItem[];
 }
 
@@ -32,6 +36,7 @@ interface CycleProgress {
   startedAt: string;
   results: CycleResultItem[];
   purgedScrapeRuns: number;
+  purgedWageRuns: number;
 }
 
 interface SchedulerStatus {
@@ -46,15 +51,21 @@ interface SchedulerStatus {
   lastCycle: CycleSummary | null;
   keywords: string[];
   sources: string[];
+  wageCategories?: string[];
 }
 
 const POLL_MS_IDLE = 3000;
 const POLL_MS_RUNNING = 1500;
 
+const WAGE_CATE_LABELS: Record<string, string> = {
+  "701111": "공사부문",
+  "701115": "기타직종",
+};
+
 export function DbAutoScrape() {
   const [status, setStatus] = useState<SchedulerStatus | null>(null);
   const [scheduleInput, setScheduleInput] = useState("*/1 * * * *");
-  const [busy, setBusy] = useState<"start" | "stop" | "runNow" | null>(null);
+  const [busy, setBusy] = useState<"start" | "stop" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const editedRef = useRef(false);
 
@@ -89,7 +100,7 @@ export function DbAutoScrape() {
     };
   }, []);
 
-  async function call(action: "start" | "stop" | "runNow") {
+  async function call(action: "start" | "stop") {
     setBusy(action);
     setError(null);
     try {
@@ -119,10 +130,34 @@ export function DbAutoScrape() {
   const inProgress = status?.cycleInProgress === true;
 
   return (
-    <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <section
+      className={`bg-white rounded-lg border p-6 space-y-4 transition ${
+        inProgress
+          ? "border-emerald-400 ring-2 ring-emerald-200/60"
+          : "border-slate-200"
+      }`}
+    >
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-          <Repeat size={18} className="text-emerald-500" /> 자동 스크래핑 (정기 실행)
+          <Repeat size={18} className="text-emerald-500" />
+          자동 스크래핑 (정기 실행)
+          <InfoTooltip width="w-96">
+            한 사이클에서 자재 단가(3개 사이트 × 5개 키워드 = 15스텝) +
+            노임 단가(KPI 두 카테고리, 1스텝) 를 함께 수집합니다. 모든 16개 스텝이
+            에러 없이 끝났을 때만 기존 데이터를 교체(swap)하고, 한 스텝이라도
+            실패하거나 중도 OFF 하면 이번 사이클 신규 데이터는 모두 롤백되어 기존
+            DB(자재·노임 양쪽) 가 유지됩니다. 진행 중 OFF 시 다음 스텝 직전에
+            사이클을 중단합니다 (현재 진행 중인 한 스텝은 끝까지 수행).
+          </InfoTooltip>
+          {inProgress && (
+            <span className="ml-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+              <Loader2 size={12} className="animate-spin" />
+              진행 중
+              {status?.cycleProgress
+                ? ` (${status.cycleProgress.completed}/${status.cycleProgress.total})`
+                : ""}
+            </span>
+          )}
         </h2>
         <label className="inline-flex items-center gap-2 cursor-pointer select-none">
           <span className="text-xs text-slate-500">{enabled ? "ON" : "OFF"}</span>
@@ -140,15 +175,9 @@ export function DbAutoScrape() {
         </label>
       </div>
 
-      <p className="text-xs text-slate-500">
-        고정 키워드 셋을 3개 사이트(KPI/KPRC/CMPI) 모두에서 검색해 PriceHistory + 임베딩까지 자동 생성합니다.
-        <span className="text-emerald-700"> 모든 항목이 에러 없이 끝났을 때만 기존 데이터와 교체</span>(swap)되고, 한 항목이라도 실패하거나 중도 OFF 하면 이번 사이클 신규 데이터는 롤백되어 기존 DB 가 유지됩니다.
-        {" "}진행 중에 OFF 하면 다음 항목 직전에 사이클을 중단합니다 (현재 진행 중인 한 항목은 끝까지 수행).
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
         <div className="border border-slate-200 rounded p-3">
-          <div className="text-slate-500 mb-1">키워드 ({status?.keywords.length ?? 0}개)</div>
+          <div className="text-slate-500 mb-1">자재 키워드 ({status?.keywords.length ?? 0}개)</div>
           <div className="flex flex-wrap gap-1">
             {(status?.keywords ?? []).map((k) => (
               <span key={k} className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded">
@@ -158,11 +187,27 @@ export function DbAutoScrape() {
           </div>
         </div>
         <div className="border border-slate-200 rounded p-3">
-          <div className="text-slate-500 mb-1">사이트 ({status?.sources.length ?? 0}개)</div>
+          <div className="text-slate-500 mb-1">자재 사이트 ({status?.sources.length ?? 0}개)</div>
           <div className="flex flex-wrap gap-1">
             {(status?.sources ?? []).map((s) => (
               <span key={s} className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded uppercase">
                 {s}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="border border-slate-200 rounded p-3">
+          <div className="text-slate-500 mb-1">
+            노임 카테고리 ({status?.wageCategories?.length ?? 0}개)
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(status?.wageCategories ?? []).map((c) => (
+              <span
+                key={c}
+                className="bg-amber-50 text-amber-800 px-2 py-0.5 rounded"
+                title={c}
+              >
+                {WAGE_CATE_LABELS[c] ?? c}
               </span>
             ))}
           </div>
@@ -197,15 +242,6 @@ export function DbAutoScrape() {
           className="border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded text-sm inline-flex items-center gap-1 disabled:opacity-50"
         >
           <Square size={14} /> 정지
-        </button>
-        <button
-          onClick={() => call("runNow")}
-          disabled={busy !== null || inProgress}
-          className="border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded text-sm inline-flex items-center gap-1 disabled:opacity-50"
-          title="즉시 1회 실행 (사이클 진행 중이면 무시)"
-        >
-          <RefreshCw size={14} className={inProgress ? "animate-spin" : ""} />
-          즉시 실행
         </button>
       </div>
 
@@ -249,22 +285,29 @@ export function DbAutoScrape() {
               성공: <span className="text-emerald-700">{status.lastCycle.ok}</span> / 실패:{" "}
               <span className="text-rose-700">{status.lastCycle.failed}</span>
             </span>
-            {status.lastCycle.committed === true &&
-              typeof status.lastCycle.purgedScrapeRuns === "number" && (
-                <span>
-                  교체된 이전 run:{" "}
-                  <span className="text-slate-900">
-                    {status.lastCycle.purgedScrapeRuns}
-                  </span>
+            {status.lastCycle.committed === true && (
+              <span>
+                교체된 이전 회차: 자재{" "}
+                <span className="text-slate-900">
+                  {status.lastCycle.purgedScrapeRuns ?? 0}
+                </span>{" "}
+                / 노임{" "}
+                <span className="text-slate-900">
+                  {status.lastCycle.purgedWageRuns ?? 0}
                 </span>
-              )}
+              </span>
+            )}
             {status.lastCycle.committed === false &&
-              typeof status.lastCycle.rolledBackScrapeRuns === "number" &&
-              status.lastCycle.rolledBackScrapeRuns > 0 && (
+              ((status.lastCycle.rolledBackScrapeRuns ?? 0) > 0 ||
+                (status.lastCycle.rolledBackWageRuns ?? 0) > 0) && (
                 <span>
-                  롤백된 신규 run:{" "}
+                  롤백된 신규 회차: 자재{" "}
                   <span className="text-slate-900">
-                    {status.lastCycle.rolledBackScrapeRuns}
+                    {status.lastCycle.rolledBackScrapeRuns ?? 0}
+                  </span>{" "}
+                  / 노임{" "}
+                  <span className="text-slate-900">
+                    {status.lastCycle.rolledBackWageRuns ?? 0}
                   </span>
                 </span>
               )}

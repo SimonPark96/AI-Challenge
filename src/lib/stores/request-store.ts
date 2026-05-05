@@ -118,6 +118,7 @@ interface RequestState {
   ) => void;
   addItem: () => void;
   removeItem: (index: number) => void;
+  moveItem: (from: number, to: number) => void;
   setAutoMatchResult: (result: {
     status: AutoMatchStatus;
     candidates: SelectedSummary[];
@@ -297,6 +298,25 @@ export const useRequestStore = create<RequestState>((set, get) => ({
           items: filtered.length === 0 ? [{ ...EMPTY_ROW }] : filtered,
         },
       };
+    });
+  },
+
+  moveItem: (from, to) => {
+    set((s) => {
+      const items = s.form.items;
+      if (
+        from === to ||
+        from < 0 ||
+        from >= items.length ||
+        to < 0 ||
+        to >= items.length
+      ) {
+        return {};
+      }
+      const next = items.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return { form: { ...s.form, items: next } };
     });
   },
 

@@ -23,6 +23,16 @@ function fmt(n: number | null): string {
   return n != null ? n.toLocaleString() : "-";
 }
 
+function ymd(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "-";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function DbPriceSummarySearch() {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<SummaryRow[]>([]);
@@ -34,7 +44,7 @@ export function DbPriceSummarySearch() {
     setLoading(true);
     setCount(null);
     try {
-      const params = new URLSearchParams({ limit: "200" });
+      const params = new URLSearchParams({ limit: "10000" });
       if (q.trim()) params.set("q", q.trim());
       const res = await fetch(`/api/price-summary?${params.toString()}`);
       const data = await res.json();
@@ -77,9 +87,9 @@ export function DbPriceSummarySearch() {
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <Wallet size={18} className="text-blue-500" />
-        PriceSummary 검색
+        일괄 단가 검색
         <span className="text-[11px] font-normal text-slate-400">
-          (일괄 등록 — 명칭/규격 합계)
+          (엑셀/이미지 일괄 등록 — 명칭·규격 합계)
         </span>
       </h2>
 
@@ -132,6 +142,9 @@ export function DbPriceSummarySearch() {
               <th className="text-left p-2 font-medium text-slate-600">
                 소스
               </th>
+              <th className="text-left p-2 font-medium text-slate-600 w-24">
+                수집일
+              </th>
               <th className="text-center p-2 font-medium text-slate-600">
                 embed
               </th>
@@ -170,6 +183,9 @@ export function DbPriceSummarySearch() {
                     {r.sourceVia ?? "-"}
                   </div>
                 </td>
+                <td className="p-2 text-xs font-mono text-slate-600">
+                  {ymd(r.fetchedAt)}
+                </td>
                 <td className="p-2 text-center text-xs">
                   {r.hasEmbedding ? (
                     <span className="text-emerald-600">✓</span>
@@ -193,7 +209,7 @@ export function DbPriceSummarySearch() {
             {rows.length === 0 && count !== null && (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={12}
                   className="p-4 text-center text-slate-400"
                 >
                   결과 없음
@@ -203,10 +219,10 @@ export function DbPriceSummarySearch() {
             {count === null && (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={12}
                   className="p-4 text-center text-slate-400"
                 >
-                  조회 버튼을 눌러주세요 (검색어 비우면 최근 200건)
+                  조회 버튼을 눌러주세요 (검색어 비우면 전체 표시)
                 </td>
               </tr>
             )}

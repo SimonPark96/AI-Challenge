@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Globe } from "lucide-react";
+import { DownloadCloud, Globe } from "lucide-react";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 type Source = "kpi" | "kprc" | "cmpi";
 
@@ -39,10 +40,11 @@ export function DbScrape() {
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <Globe size={18} className="text-blue-500" /> 외부 사이트 스크래핑
+        <InfoTooltip>
+          선택한 사이트에서 검색어로 단가를 가져와 자재 단가 DB 와 임베딩까지
+          자동 생성합니다. 30초~수분 소요.
+        </InfoTooltip>
       </h2>
-      <p className="text-xs text-slate-500">
-        선택한 사이트에서 검색어로 단가를 가져와 PriceHistory + 임베딩까지 자동 생성. 30초~수분 소요.
-      </p>
 
       <div className="flex flex-wrap gap-2 items-center">
         <select
@@ -67,7 +69,7 @@ export function DbScrape() {
           disabled={running || !keyword.trim()}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm inline-flex items-center gap-1 disabled:opacity-50"
         >
-          <Sparkles size={14} />
+          <DownloadCloud size={14} />
           {running ? "실행 중..." : "스크래핑"}
         </button>
       </div>

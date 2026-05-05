@@ -15,6 +15,9 @@ export async function GET() {
     bySource,
     embeddedHistory,
     embeddedSummary,
+    wageRuns,
+    wageHistory,
+    wageByCate,
   ] = await Promise.all([
     prisma.material.count(),
     prisma.scrapeRun.count(),
@@ -31,6 +34,12 @@ export async function GET() {
     prisma.priceSummary.count({
       where: { embedding: { not: Prisma.AnyNull } },
     }),
+    prisma.wageRun.count(),
+    prisma.wageHistory.count(),
+    prisma.wageHistory.groupBy({
+      by: ["cateCd"],
+      _count: { _all: true },
+    }),
   ]);
 
   return NextResponse.json({
@@ -41,9 +50,15 @@ export async function GET() {
     quotations,
     embeddedHistory,
     embeddedSummary,
+    wageRuns,
+    wageHistory,
     bySource: bySource.map((s) => ({
       source: s.source,
       count: s._count._all,
+    })),
+    wageByCate: wageByCate.map((w) => ({
+      cateCd: w.cateCd,
+      count: w._count._all,
     })),
   });
 }

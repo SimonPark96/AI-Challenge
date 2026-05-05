@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FileSpreadsheet, Image as ImageIcon, Upload } from "lucide-react";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 const ACCEPT = ".xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp,.gif,.bmp";
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "webp", "gif", "bmp"]);
@@ -56,14 +57,14 @@ export function DbExcelImport() {
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <FileSpreadsheet size={18} className="text-blue-500" />
         외부 단가 자료 일괄 등록
+        <InfoTooltip width="w-96">
+          엑셀(.xlsx/.xls/.csv) 또는 단가 자료 이미지(.png/.jpg/.webp) 를
+          업로드하면 자동으로 <b>명칭 / 규격 / 단위 / 합계(재료비·노무비·경비)</b>
+          행을 감지해 일괄 단가 DB 에 등록하고 임베딩까지 생성합니다. 이
+          데이터는 단가 검토 요청 페이지의 <b>합계 비교</b> 단계에서 검색·선택해
+          사용됩니다. (자재 단가 DB 와는 별도)
+        </InfoTooltip>
       </h2>
-      <p className="text-xs text-slate-500 leading-relaxed">
-        엑셀 (.xlsx/.xls/.csv) 또는 단가 자료 이미지 (.png/.jpg/.webp) 를
-        업로드하면 자동으로 <b>명칭/규격/단위/합계 (재료비·노무비·경비)</b> 행을
-        감지해 <b>PriceSummary</b> 에 등록하고 임베딩까지 생성합니다. 이 데이터는
-        단가 검토 요청 페이지의 <b>합계 비교</b> 단계에서 검색·선택해 사용됩니다.
-        (스크래핑 데이터인 PriceHistory 와는 별도)
-      </p>
 
       <div
         onClick={() => inputRef.current?.click()}

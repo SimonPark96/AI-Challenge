@@ -26,15 +26,14 @@ interface QuoteSummary {
   } | null;
 }
 
-const TABS: { value: Filter; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "inProgress", label: "진행 중" },
-  { value: "completed", label: "완료" },
-  { value: "failed", label: "실패" },
-];
+const FILTER_LABELS: Record<Filter, string> = {
+  all: "전체",
+  inProgress: "진행 중",
+  completed: "완료",
+  failed: "실패",
+};
 
-export function QuoteList() {
-  const [filter, setFilter] = useState<Filter>("all");
+export function QuoteList({ filter }: { filter: Filter }) {
   const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -89,20 +88,12 @@ export function QuoteList() {
   return (
     <section className="bg-white rounded-lg border border-slate-200">
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-        <div className="flex gap-1">
-          {TABS.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => setFilter(t.value)}
-              className={`px-3 py-1.5 rounded text-sm transition ${
-                filter === t.value
-                  ? "bg-blue-50 text-blue-700 font-medium"
-                  : "text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="text-sm text-slate-700">
+          <span className="text-slate-500">현재 필터:</span>{" "}
+          <span className="font-semibold">{FILTER_LABELS[filter]}</span>
+          <span className="text-xs text-slate-400 ml-2">
+            ({quotes.length}건)
+          </span>
         </div>
         <button
           onClick={fetchList}
@@ -261,7 +252,15 @@ function StatusBadge({ status }: { status: string }) {
       label: "파싱 중",
       cls: "bg-blue-50 text-blue-700 border-blue-200",
     },
+    matching: {
+      label: "매칭 중",
+      cls: "bg-blue-50 text-blue-700 border-blue-200",
+    },
     compared: {
+      label: "검토 중",
+      cls: "bg-amber-50 text-amber-700 border-amber-200",
+    },
+    confirmed: {
       label: "완료",
       cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
     },

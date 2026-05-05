@@ -108,7 +108,9 @@ export async function POST(req: Request) {
           quantity,
           unitPrice,
           totalPrice,
+          matchedSource: m.source === "none" ? null : m.source,
           matchedPriceId: m.matchedPriceId,
+          matchedWageId: m.matchedWageId,
           matchedConfidence: m.matchedConfidence,
           marketPrice: m.marketPrice,
           marketRegion: m.marketRegion,
@@ -127,7 +129,9 @@ export async function POST(req: Request) {
       expenseCost: num(body.form.expenseCost),
       notes: body.form.notes ?? "",
       itemCount: validItems.length,
-      matchedCount: matches.filter((m) => m.matchedPriceId !== null).length,
+      matchedCount: matches.filter(
+        (m) => m.matchedPriceId !== null || m.matchedWageId !== null
+      ).length,
     };
 
     const summaryId =
@@ -160,7 +164,9 @@ export async function POST(req: Request) {
     return NextResponse.json({
       quotationId: quotation.id,
       itemCount: validItems.length,
-      matchedCount: matches.filter((m) => m.matchedPriceId !== null).length,
+      matchedCount: matches.filter(
+        (m) => m.matchedPriceId !== null || m.matchedWageId !== null
+      ).length,
       priceSummaryId: validSummaryId,
     });
   } catch (err) {

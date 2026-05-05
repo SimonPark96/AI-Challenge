@@ -7,6 +7,7 @@ import { QuoteSummary } from "@/components/QuoteSummary";
 import { ComparisonTable } from "@/components/ComparisonTable";
 import { TotalComparison } from "@/components/TotalComparison";
 import { AICommentary } from "@/components/AICommentary";
+import { AiChatBot } from "@/components/chat/AiChatBot";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function ReviewByIdPage({
     include: {
       items: {
         orderBy: { rowIndex: "asc" },
-        include: { matchedPrice: true },
+        include: { matchedPrice: true, matchedWage: true },
       },
       priceSummary: true,
     },
@@ -62,12 +63,22 @@ export default async function ReviewByIdPage({
     marketPrice: it.marketPrice,
     marketRegion: it.marketRegion,
     deviationPct: it.deviationPct,
+    matchedSource: (it.matchedSource ?? null) as "price" | "wage" | null,
     matchedPrice: it.matchedPrice
       ? {
           itemName: it.matchedPrice.itemName,
           spec: it.matchedPrice.spec,
           source: it.matchedPrice.source,
           region: it.matchedPrice.region,
+        }
+      : null,
+    matchedWage: it.matchedWage
+      ? {
+          jobName: it.matchedWage.jobName,
+          cateCd: it.matchedWage.cateCd,
+          source: it.matchedWage.source,
+          unit: it.matchedWage.unit,
+          basis: it.matchedWage.basis,
         }
       : null,
   }));
@@ -92,6 +103,23 @@ export default async function ReviewByIdPage({
         }, 0)
       : null;
 
+  // 매칭 source 별 분해 — 자재(price) → 재료비, 노임(wage) → 노무비, 경비는 라인 아이템에서 도출 불가.
+  const sumByMatchedSource = (src: "price" | "wage"): number | null => {
+    const rows = quotation.items.filter(
+      (it) => it.matchedSource === src && it.marketPrice != null
+    );
+    if (rows.length === 0) return null;
+    return rows.reduce(
+      (a, it) => a + (it.marketPrice ?? 0) * (it.quantity ?? 1),
+      0
+    );
+  };
+  const itemMarketBreakdown = {
+    materialCost: sumByMatchedSource("price"),
+    laborCost: sumByMatchedSource("wage"),
+    expenseCost: null as number | null,
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <header>
@@ -112,7 +140,7 @@ export default async function ReviewByIdPage({
         meta={meta}
       />
 
-      <ComparisonTable items={items} />
+      <ComparisonTable quotationId={quotation.id} items={items} />
 
       <TotalComparison
         partnerTotal={partnerTotal}
@@ -134,6 +162,7 @@ export default async function ReviewByIdPage({
             : null
         }
         itemMarketTotal={itemMarketTotal}
+        itemMarketBreakdown={itemMarketBreakdown}
         itemTotalCount={quotation.items.length}
         itemMatchedCount={itemMatched.length}
       />
@@ -160,6 +189,8 @@ export default async function ReviewByIdPage({
           결과 확정 <ChevronRight size={16} />
         </Link>
       </div>
+
+      <AiChatBot mode="review" quotationId={quotation.id} />
     </div>
   );
 }

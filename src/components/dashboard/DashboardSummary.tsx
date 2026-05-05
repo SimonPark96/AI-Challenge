@@ -1,13 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ListChecks,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  TrendingUp,
-} from "lucide-react";
+import { ListChecks, Loader2, CheckCircle2, XCircle } from "lucide-react";
+
+export type DashboardFilter = "all" | "inProgress" | "completed" | "failed";
 
 interface Summary {
   total: number;
@@ -19,106 +15,116 @@ interface Summary {
   lastUploadedAt: string | null;
 }
 
+async function fetchSummary(): Promise<Summary | null> {
+  try {
+    const res = await fetch("/api/dashboard/summary");
+    if (!res.ok) return null;
+    return (await res.json()) as Summary;
+  } catch {
+    return null;
+  }
+}
+
 export function DashboardSummary({
-  onChange,
+  filter,
+  onFilterChange,
 }: {
-  onChange?: (s: Summary) => void;
+  filter: DashboardFilter;
+  onFilterChange: (f: DashboardFilter) => void;
 }) {
   const [data, setData] = useState<Summary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/dashboard/summary")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled && d) {
-          setData(d);
-          onChange?.(d);
-        }
-      })
-      .catch(() => {});
+    fetchSummary().then((d) => {
+      if (cancelled) return;
+      if (d) setData(d);
+    });
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <Card
         icon={<ListChecks size={16} />}
         label="전체 분석"
         value={data?.total ?? "-"}
         tone="slate"
+        active={filter === "all"}
+        onClick={() => onFilterChange("all")}
       />
       <Card
         icon={<Loader2 size={16} />}
         label="진행 중"
         value={data?.inProgress ?? "-"}
         tone="blue"
+        active={filter === "inProgress"}
+        onClick={() => onFilterChange("inProgress")}
       />
       <Card
         icon={<CheckCircle2 size={16} />}
         label="완료"
         value={data?.completed ?? "-"}
         tone="emerald"
+        active={filter === "completed"}
+        onClick={() => onFilterChange("completed")}
       />
       <Card
         icon={<XCircle size={16} />}
         label="실패"
         value={data?.failed ?? "-"}
         tone="rose"
-      />
-      <Card
-        icon={<TrendingUp size={16} />}
-        label="평균 편차"
-        value={
-          data?.avgDeviationPct != null
-            ? `${data.avgDeviationPct.toFixed(1)}%`
-            : "-"
-        }
-        sub={
-          data?.maxDeviationPct != null
-            ? `최대 ${data.maxDeviationPct.toFixed(1)}%`
-            : undefined
-        }
-        tone="amber"
+        active={filter === "failed"}
+        onClick={() => onFilterChange("failed")}
       />
     </section>
   );
 }
 
-const TONES = {
-  slate: "border-slate-200 text-slate-700",
-  blue: "border-blue-200 text-blue-700",
-  emerald: "border-emerald-200 text-emerald-700",
-  rose: "border-rose-200 text-rose-700",
-  amber: "border-amber-200 text-amber-700",
+const TONES_INACTIVE = {
+  slate: "border-slate-200 text-slate-700 hover:border-slate-300",
+  blue: "border-blue-200 text-blue-700 hover:border-blue-300",
+  emerald: "border-emerald-200 text-emerald-700 hover:border-emerald-300",
+  rose: "border-rose-200 text-rose-700 hover:border-rose-300",
+};
+
+const TONES_ACTIVE = {
+  slate: "border-slate-500 ring-2 ring-slate-200 text-slate-800",
+  blue: "border-blue-500 ring-2 ring-blue-200 text-blue-800",
+  emerald: "border-emerald-500 ring-2 ring-emerald-200 text-emerald-800",
+  rose: "border-rose-500 ring-2 ring-rose-200 text-rose-800",
 };
 
 function Card({
   icon,
   label,
   value,
-  sub,
   tone,
+  active,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number | string;
-  sub?: string;
-  tone: keyof typeof TONES;
+  tone: keyof typeof TONES_INACTIVE;
+  active: boolean;
+  onClick: () => void;
 }) {
+  const toneCls = active ? TONES_ACTIVE[tone] : TONES_INACTIVE[tone];
   return (
-    <div
-      className={`bg-white rounded-lg border px-4 py-3 ${TONES[tone]}`}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`bg-white rounded-lg border px-4 py-3 text-left transition cursor-pointer ${toneCls}`}
     >
       <div className="flex items-center gap-1.5 text-xs">
         {icon}
         <span className="text-slate-500">{label}</span>
       </div>
       <div className="text-2xl font-bold mt-1 text-slate-800">{value}</div>
-      {sub && <div className="text-[11px] text-slate-400 mt-0.5">{sub}</div>}
-    </div>
+    </button>
   );
 }

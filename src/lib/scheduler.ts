@@ -1,5 +1,6 @@
 import cron, { type ScheduledTask } from "node-cron";
 import { runScrape, type RunScrapeResult } from "./scrape/run";
+import { scrapeAndInsertWages, WAGE_CATE_CDS } from "./scrape/run-wage";
 import type { ScrapeSource } from "./scrapers/types";
 import { prisma } from "./prisma";
 
@@ -12,6 +13,18 @@ export const AUTO_SOURCES: readonly ScrapeSource[] = ["kpi", "kprc", "cmpi"];
 export const DEFAULT_SCHEDULE = "*/1 * * * *";
 export const TIMEZONE = "Asia/Seoul";
 
+// 한 사이클 내 한 스텝의 결과. material 스텝은 source = "kpi"|"kprc"|"cmpi",
+// 노임단가 스텝은 source = "kpi-wage", keyword = "노임단가" 로 통일.
+export interface CycleResultItem {
+  source: string;
+  keyword: string;
+  ok: boolean;
+  scrapeRunId?: number; // material 의 ScrapeRun.id
+  wageRunIds?: number[]; // 노임단가 사이클의 신규 WageRun.id 들
+  normalizedCount?: number; // material: 정규화 행 수, wage: 전체 행 수
+  error?: string;
+}
+
 interface CycleSummary {
   startedAt: string;
   finishedAt: string;
@@ -20,29 +33,25 @@ interface CycleSummary {
   failed: number;
   cancelled: boolean;
   /**
-   * commit=true:  모든 항목 성공 + 취소 안됨 → 이전 ScrapeRun 삭제하고 신규 적용 (swap)
-   * commit=false: 일부 실패 또는 취소됨 → 이번 사이클의 신규 ScrapeRun 롤백, 기존 데이터 유지
+   * commit=true:  모든 스텝 성공 + 취소 안됨 → 이전 ScrapeRun/WageRun 삭제, 신규 적용 (swap)
+   * commit=false: 일부 실패 또는 취소됨 → 이번 사이클의 신규 데이터 롤백, 기존 데이터 유지
    */
   committed: boolean;
-  purgedScrapeRuns: number; // committed=true 일 때만 의미 있음 — 교체로 사라진 이전 run 수
-  rolledBackScrapeRuns: number; // committed=false 일 때 — 롤백으로 지워진 신규 run 수
-  results: Array<{
-    source: ScrapeSource;
-    keyword: string;
-    ok: boolean;
-    scrapeRunId?: number;
-    normalizedCount?: number;
-    error?: string;
-  }>;
+  purgedScrapeRuns: number; // commit 시 swap 으로 사라진 이전 자재 ScrapeRun 수
+  rolledBackScrapeRuns: number; // rollback 시 지워진 이번 사이클 자재 ScrapeRun 수
+  purgedWageRuns: number; // commit 시 swap 으로 사라진 이전 노임 WageRun 수
+  rolledBackWageRuns: number; // rollback 시 지워진 이번 사이클 노임 WageRun 수
+  results: CycleResultItem[];
 }
 
 export interface CycleProgress {
   total: number;
   completed: number;
-  current: { source: ScrapeSource; keyword: string } | null;
+  current: { source: string; keyword: string } | null;
   startedAt: string;
-  results: CycleSummary["results"];
+  results: CycleResultItem[];
   purgedScrapeRuns: number;
+  purgedWageRuns: number;
 }
 
 interface SchedulerState {
@@ -92,18 +101,24 @@ async function runCycle(trigger: "cron" | "manual"): Promise<CycleSummary | null
   state.totalCycles += 1;
   const startedAt = new Date();
   const results: CycleSummary["results"] = [];
-  const newScrapeRunIds: number[] = []; // 이번 사이클에서 만들어진 ScrapeRun id (rollback 시 정확히 이것만 삭제)
+  const newScrapeRunIds: number[] = []; // 이번 사이클에서 만들어진 자재 ScrapeRun id
+  const newWageRunIds: number[] = []; // 이번 사이클에서 만들어진 노임 WageRun id
   let purgedScrapeRuns = 0;
   let rolledBackScrapeRuns = 0;
+  let purgedWageRuns = 0;
+  let rolledBackWageRuns = 0;
   let cancelled = false;
   let committed = false;
+  // 사이클 step 수 = 자재 (sources × keywords) + 노임 1
+  const expectedTotal = AUTO_SOURCES.length * AUTO_KEYWORDS.length + 1;
   state.cycleProgress = {
-    total: AUTO_SOURCES.length * AUTO_KEYWORDS.length,
+    total: expectedTotal,
     completed: 0,
     current: null,
     startedAt: startedAt.toISOString(),
     results,
     purgedScrapeRuns: 0,
+    purgedWageRuns: 0,
   };
 
   try {
@@ -116,9 +131,7 @@ async function runCycle(trigger: "cron" | "manual"): Promise<CycleSummary | null
         if (state.cancelRequested) {
           cancelled = true;
           console.log(
-            `[scheduler] 취소 요청 감지 — 사이클 중단 (완료 ${results.length}/${
-              AUTO_SOURCES.length * AUTO_KEYWORDS.length
-            })`
+            `[scheduler] 취소 요청 감지 — 사이클 중단 (완료 ${results.length}/${expectedTotal})`
           );
           break outer;
         }
@@ -143,32 +156,99 @@ async function runCycle(trigger: "cron" | "manual"): Promise<CycleSummary | null
       }
     }
 
-    // 모든 항목 성공 + 취소 안됨 → swap. 그 외는 rollback.
+    // 노임단가 스텝 — 자재 루프가 cancel 로 빠져나오지 않은 경우에만 시도.
+    if (!cancelled) {
+      if (state.cancelRequested) {
+        cancelled = true;
+        console.log(`[scheduler] 노임단가 시작 직전 취소 요청 — 스킵`);
+      } else {
+        if (state.cycleProgress)
+          state.cycleProgress.current = { source: "kpi-wage", keyword: "노임단가" };
+        try {
+          const w = await scrapeAndInsertWages({
+            log: (m) => console.log(`  ${m}`),
+          });
+          newWageRunIds.push(...w.newWageRunIds);
+          if (w.allHaveRows && w.newWageRunIds.length === WAGE_CATE_CDS.length) {
+            results.push({
+              source: "kpi-wage",
+              keyword: "노임단가",
+              ok: true,
+              wageRunIds: w.newWageRunIds,
+              normalizedCount: w.totalRows,
+            });
+            console.log(
+              `[scheduler] 노임단가 → ${w.newWageRunIds.length}개 WageRun (${w.totalRows} rows)`
+            );
+          } else {
+            results.push({
+              source: "kpi-wage",
+              keyword: "노임단가",
+              ok: false,
+              wageRunIds: w.newWageRunIds,
+              error: `카테고리 ${w.newWageRunIds.length}/${WAGE_CATE_CDS.length} 만 적재됨 (allHaveRows=${w.allHaveRows})`,
+            });
+            console.error(
+              `[scheduler] 노임단가 부분 실패: ${w.newWageRunIds.length}/${WAGE_CATE_CDS.length}`
+            );
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          results.push({
+            source: "kpi-wage",
+            keyword: "노임단가",
+            ok: false,
+            error: message,
+          });
+          console.error(`[scheduler] 노임단가 throw: ${message}`);
+        }
+        if (state.cycleProgress) state.cycleProgress.completed += 1;
+      }
+    }
+
+    // 모든 스텝 성공 + 취소 안됨 → swap (자재 + 노임 동시). 그 외는 rollback (양쪽).
     const allOk = results.length > 0 && results.every((r) => r.ok);
-    const expectedTotal = AUTO_SOURCES.length * AUTO_KEYWORDS.length;
     const fullCycle = results.length === expectedTotal;
     if (!cancelled && allOk && fullCycle) {
-      const swap = await prisma.scrapeRun.deleteMany({
-        where: { id: { notIn: newScrapeRunIds } },
-      });
-      purgedScrapeRuns = swap.count;
+      const [swapMat, swapWage] = await Promise.all([
+        prisma.scrapeRun.deleteMany({
+          where: { id: { notIn: newScrapeRunIds } },
+        }),
+        prisma.wageRun.deleteMany({
+          where: { id: { notIn: newWageRunIds } },
+        }),
+      ]);
+      purgedScrapeRuns = swapMat.count;
+      purgedWageRuns = swapWage.count;
       committed = true;
-      if (state.cycleProgress) state.cycleProgress.purgedScrapeRuns = purgedScrapeRuns;
+      if (state.cycleProgress) {
+        state.cycleProgress.purgedScrapeRuns = purgedScrapeRuns;
+        state.cycleProgress.purgedWageRuns = purgedWageRuns;
+      }
       console.log(
-        `[scheduler] 모든 항목 성공 → 이전 ScrapeRun ${purgedScrapeRuns}개 삭제, 신규 ${newScrapeRunIds.length}개 적용 (commit)`
+        `[scheduler] 전체 성공 → swap: 이전 ScrapeRun ${purgedScrapeRuns} + WageRun ${purgedWageRuns} 삭제 (commit)`
       );
-    } else if (newScrapeRunIds.length > 0) {
-      const rb = await prisma.scrapeRun.deleteMany({
-        where: { id: { in: newScrapeRunIds } },
-      });
-      rolledBackScrapeRuns = rb.count;
+    } else if (newScrapeRunIds.length > 0 || newWageRunIds.length > 0) {
+      // rollback: 이번 사이클 신규 데이터(자재 + 노임) 모두 삭제. 기존 데이터 유지.
+      const [rbMat, rbWage] = await Promise.all([
+        newScrapeRunIds.length > 0
+          ? prisma.scrapeRun.deleteMany({ where: { id: { in: newScrapeRunIds } } })
+          : Promise.resolve({ count: 0 }),
+        newWageRunIds.length > 0
+          ? prisma.wageRun.deleteMany({ where: { id: { in: newWageRunIds } } })
+          : Promise.resolve({ count: 0 }),
+      ]);
+      rolledBackScrapeRuns = rbMat.count;
+      rolledBackWageRuns = rbWage.count;
       console.log(
         `[scheduler] ${
           cancelled ? "중단" : "일부 실패"
-        } → 신규 ScrapeRun ${rolledBackScrapeRuns}개 롤백 (기존 데이터 유지)`
+        } → rollback: 신규 ScrapeRun ${rolledBackScrapeRuns} + WageRun ${rolledBackWageRuns} 삭제 (기존 데이터 유지)`
       );
     } else {
-      console.log(`[scheduler] ${cancelled ? "중단" : "전체 실패"} — 신규 데이터 없음, 기존 데이터 유지`);
+      console.log(
+        `[scheduler] ${cancelled ? "중단" : "전체 실패"} — 신규 데이터 없음, 기존 데이터 유지`
+      );
     }
   } finally {
     const finishedAt = new Date();
@@ -182,6 +262,8 @@ async function runCycle(trigger: "cron" | "manual"): Promise<CycleSummary | null
       committed,
       purgedScrapeRuns,
       rolledBackScrapeRuns,
+      purgedWageRuns,
+      rolledBackWageRuns,
       results,
     };
     state.lastCycle = summary;
@@ -253,6 +335,7 @@ export interface SchedulerStatus {
   lastCycle: CycleSummary | null;
   keywords: readonly string[];
   sources: readonly ScrapeSource[];
+  wageCategories: readonly string[]; // KPI 노임단가 CATE_CD 들
 }
 
 export function getSchedulerStatus(): SchedulerStatus {
@@ -268,6 +351,7 @@ export function getSchedulerStatus(): SchedulerStatus {
     lastCycle: state.lastCycle,
     keywords: AUTO_KEYWORDS,
     sources: AUTO_SOURCES,
+    wageCategories: WAGE_CATE_CDS,
   };
 }
 

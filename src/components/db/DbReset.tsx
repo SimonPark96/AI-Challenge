@@ -3,20 +3,24 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 
-type ResetType = "scrape" | "summary" | "all";
+type ResetType = "scrape" | "summary" | "wage" | "all";
 
 const LABEL: Record<ResetType, string> = {
-  scrape: "ScrapeRun + PriceHistory 전체 삭제 (스크래핑 자료)",
-  summary: "PriceSummary 전체 삭제 (일괄 등록 자료)",
-  all: "스크래핑 + 일괄 등록 자료 전부 삭제",
+  scrape: "자재 단가 전체 삭제",
+  summary: "일괄 단가 전체 삭제",
+  wage: "노임 단가 전체 삭제",
+  all: "자재 + 일괄 + 노임 전부 삭제",
 };
 
 const CONFIRM: Record<ResetType, string> = {
   scrape:
-    "정말 ScrapeRun + PriceHistory 전체 삭제하시겠습니까?\n(외부 사이트 스크래핑 자료. PriceSummary/Quotation 은 유지)",
+    "정말 자재 단가 데이터 (수집 회차 + 자재 단가 이력) 를 전체 삭제하시겠습니까?\n(일괄 단가 / 노임 단가 / 견적은 유지됩니다)",
   summary:
-    "정말 PriceSummary 전체 삭제하시겠습니까?\n(외부 단가 자료 일괄 등록 결과. 스크래핑 자료/Quotation 은 유지)",
-  all: "정말 스크래핑 + 일괄 등록 자료 전부 삭제하시겠습니까?\n(Material/Quotation 은 유지)",
+    "정말 일괄 단가 데이터를 전체 삭제하시겠습니까?\n(자재 / 노임 단가 / 견적은 유지됩니다)",
+  wage:
+    "정말 노임 단가 데이터 (수집 회차 + 노임 단가 이력) 를 전체 삭제하시겠습니까?\n(자재 / 일괄 / 견적은 유지됩니다)",
+  all:
+    "정말 자재 단가 + 일괄 단가 + 노임 단가 자료를 전부 삭제하시겠습니까?\n(자재 마스터 / 견적 본문은 유지됩니다)",
 };
 
 export function DbReset() {
@@ -44,9 +48,8 @@ export function DbReset() {
         <AlertTriangle size={18} /> 위험 영역 — DB 리셋
       </h2>
       <p className="text-xs text-rose-700/80">
-        스크래핑 자료(ScrapeRun + PriceHistory) 와 일괄 등록 자료(PriceSummary)
-        를 분리해서 비울 수 있습니다. Quotation 의 매칭 ID 는 onDelete: SetNull
-        로 자동 정리됩니다. Material/Quotation 본문은 보존.
+        자재 단가, 일괄 단가, 노임 단가를 도메인별로 분리해 비울 수 있습니다.
+        견적의 매칭 정보는 자동으로 정리(SetNull)되며, 자재 마스터·견적 본문은 보존됩니다.
       </p>
       <div className="flex flex-wrap justify-end gap-2">
         <button
@@ -62,6 +65,13 @@ export function DbReset() {
           className="border border-rose-300 text-rose-700 hover:bg-rose-100 px-3 py-1.5 rounded text-xs disabled:opacity-50"
         >
           {working === "summary" ? "삭제 중..." : LABEL.summary}
+        </button>
+        <button
+          onClick={() => reset("wage")}
+          disabled={working !== null}
+          className="border border-rose-300 text-rose-700 hover:bg-rose-100 px-3 py-1.5 rounded text-xs disabled:opacity-50"
+        >
+          {working === "wage" ? "삭제 중..." : LABEL.wage}
         </button>
         <button
           onClick={() => reset("all")}
