@@ -377,15 +377,17 @@ export function ComparisonTable({
                     )}
                   </td>
 
-                  {/* 시장 단가 */}
+                  {/* 시장 단가 — 신뢰도 30% 이하면 표시 생략 */}
                   <td className="px-3 py-2.5 text-right font-mono text-slate-700">
                     {editing ? (
                       <NumberInput
                         value={d.marketPrice}
                         onChange={(v) => updateDraft(it.id, { marketPrice: v })}
                       />
-                    ) : (
+                    ) : (it.matchedConfidence ?? 0) > 0.4 ? (
                       fmt(it.marketPrice)
+                    ) : (
+                      <span className="text-slate-400">-</span>
                     )}
                   </td>
 
@@ -449,63 +451,89 @@ export function ComparisonTable({
                   </td>
 
                   {/* 매칭 자재/직종 — itemName / spec / 지역(편집 가능) */}
+                  {/* 신뢰도 30% 이하면 단가+출처를 매칭자재 셀에 함께 표시 */}
                   <td className="px-3 py-2.5 text-xs text-slate-500">
-                    {it.matchedSource === "wage" && it.matchedWage ? (
-                      <>
-                        <div className="text-slate-700">
-                          {it.matchedWage.jobName}
-                          {it.matchedWage.unit
-                            ? ` · /${it.matchedWage.unit}`
-                            : ""}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {WAGE_CATE_LABELS[it.matchedWage.cateCd] ??
-                            it.matchedWage.cateCd}
-                          {it.matchedWage.basis
-                            ? ` · ${it.matchedWage.basis}`
-                            : ""}
-                        </div>
-                      </>
-                    ) : it.matchedPrice ? (
-                      <>
-                        <div className="text-slate-700">
-                          {it.matchedPrice.itemName}
-                          {it.matchedPrice.spec
-                            ? ` · ${it.matchedPrice.spec}`
-                            : ""}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {editing ? (
-                            <Input
-                              value={d.marketRegion}
-                              onChange={(v) =>
-                                updateDraft(it.id, { marketRegion: v })
-                              }
-                              placeholder="지역"
-                              className="inline-block w-20 text-[11px]"
-                            />
-                          ) : it.marketRegion ? (
-                            it.marketRegion
-                          ) : (
-                            ""
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-slate-400">매칭 없음</span>
-                        {editing && (
-                          <Input
-                            value={d.marketRegion}
-                            onChange={(v) =>
-                              updateDraft(it.id, { marketRegion: v })
-                            }
-                            placeholder="지역"
-                            className="mt-1 w-24 text-[11px]"
-                          />
-                        )}
-                      </>
-                    )}
+                    {(() => {
+                      const lowConf = !editing && (it.matchedConfidence ?? 0) <= 0.3;
+                      if (it.matchedSource === "wage" && it.matchedWage) {
+                        return (
+                          <>
+                            <div className="text-slate-700">
+                              {it.matchedWage.jobName}
+                              {it.matchedWage.unit
+                                ? ` · /${it.matchedWage.unit}`
+                                : ""}
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              {WAGE_CATE_LABELS[it.matchedWage.cateCd] ??
+                                it.matchedWage.cateCd}
+                              {it.matchedWage.basis
+                                ? ` · ${it.matchedWage.basis}`
+                                : ""}
+                            </div>
+                            {lowConf && it.marketPrice != null && (
+                              <div className="mt-0.5 text-[11px] text-slate-500">
+                                <span className="font-mono">{fmt(it.marketPrice)}</span>
+                                <span className="ml-1 text-slate-400 uppercase">
+                                  {wageSourceLabel(it.matchedWage.source)}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      } else if (it.matchedPrice) {
+                        return (
+                          <>
+                            <div className="text-slate-700">
+                              {it.matchedPrice.itemName}
+                              {it.matchedPrice.spec
+                                ? ` · ${it.matchedPrice.spec}`
+                                : ""}
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              {editing ? (
+                                <Input
+                                  value={d.marketRegion}
+                                  onChange={(v) =>
+                                    updateDraft(it.id, { marketRegion: v })
+                                  }
+                                  placeholder="지역"
+                                  className="inline-block w-20 text-[11px]"
+                                />
+                              ) : it.marketRegion ? (
+                                it.marketRegion
+                              ) : (
+                                ""
+                              )}
+                            </div>
+                            {lowConf && it.marketPrice != null && (
+                              <div className="mt-0.5 text-[11px] text-slate-500">
+                                <span className="font-mono">{fmt(it.marketPrice)}</span>
+                                <span className="ml-1 text-slate-400 uppercase">
+                                  {it.matchedPrice.source}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      } else {
+                        return (
+                          <>
+                            <span className="text-slate-400">매칭 없음</span>
+                            {editing && (
+                              <Input
+                                value={d.marketRegion}
+                                onChange={(v) =>
+                                  updateDraft(it.id, { marketRegion: v })
+                                }
+                                placeholder="지역"
+                                className="mt-1 w-24 text-[11px]"
+                              />
+                            )}
+                          </>
+                        );
+                      }
+                    })()}
                   </td>
                 </tr>
               );
