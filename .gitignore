@@ -48,3 +48,10 @@ Thumbs.db
 
 # scraping output
 /data
+
+# prisma generated client (재생성 가능)
+/src/generated/prisma
+
+# sqlite dev db
+/prisma/*.db
+/prisma/*.db-journal

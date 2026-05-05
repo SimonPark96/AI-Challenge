@@ -9,21 +9,32 @@
     "lint": "eslint",
     "verify:kpi": "tsx scripts/verify-kpi-login.ts",
     "verify:kprc": "tsx scripts/verify-kprc-search.ts",
-    "verify:cmpi": "tsx scripts/verify-cmpi-search.ts"
+    "verify:cmpi": "tsx scripts/verify-cmpi-search.ts",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "lucide-react": "^1.14.0",
     "next": "16.2.4",
+    "node-cron": "^4.2.1",
+    "openai": "^6.35.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "playwright": "^1.59.1",
+    "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

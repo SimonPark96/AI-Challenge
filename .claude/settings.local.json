@@ -10,7 +10,12 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(npx prisma *)",
+      "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
+      "PowerShell(Get-Process *)"
     ]
   }
 }

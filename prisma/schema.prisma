@@ -1,0 +1,140 @@
+// 건축 자재 적정 단가 검토 시스템 — 1단계 스키마
+// 모델 구조:
+//   Material      : 사내 표준 자재명/규격 마스터 (시맨틱 매칭의 기준)
+//   ScrapeRun     : 사이트별 스크래핑 1회분의 원본 JSON 기록 (감사/재처리용)
+//   PriceHistory  : ScrapeRun 에서 정규화된 단가 레코드 (조회/비교용)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Material {
+  id        Int      @id @default(autoincrement())
+  name      String
+  spec      String?
+  unit      String?
+  aliases   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prices PriceHistory[]
+
+  @@unique([name, spec])
+  @@index([name])
+}
+
+model ScrapeRun {
+  id         Int      @id @default(autoincrement())
+  source     String
+  keyword    String
+  sourceUrl  String?
+  fetchedAt  DateTime
+  rawHeaders Json
+  rawRows    Json
+  createdAt  DateTime @default(now())
+
+  prices PriceHistory[]
+
+  @@index([source, fetchedAt])
+  @@index([keyword])
+}
+
+model PriceHistory {
+  id          Int      @id @default(autoincrement())
+  scrapeRunId Int
+  materialId  Int?
+  source      String
+  itemName    String
+  spec        String?
+  unit        String?
+  region      String?
+  price       Float?
+  currency    String   @default("KRW")
+  extras      Json?
+  embedding   Json? // text-embedding-3-small 1536차원 (number[])
+  fetchedAt   DateTime
+  createdAt   DateTime @default(now())
+
+  scrapeRun     ScrapeRun       @relation(fields: [scrapeRunId], references: [id], onDelete: Cascade)
+  material      Material?       @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  matchedItems  QuotationItem[]
+
+  @@index([materialId, fetchedAt])
+  @@index([source, fetchedAt])
+  @@index([scrapeRunId])
+}
+
+// 외부 단가 자료 일괄 등록 결과 (명칭/규격 단위의 단가합계).
+// PriceHistory 와 분리: 매칭 흐름이 다름 — 협력사 일위대가의 합계 비교용.
+model PriceSummary {
+  id           Int      @id @default(autoincrement())
+  name         String
+  spec         String?
+  unit         String?
+  totalCost    Float?
+  materialCost Float?
+  laborCost    Float?
+  expenseCost  Float?
+  sourceFile   String?
+  sourceVia    String? // "spreadsheet" | "image"
+  rawRow       Json?
+  embedding    Json? // text-embedding-3-small 1536차원
+  fetchedAt    DateTime
+  createdAt    DateTime @default(now())
+
+  matchedQuotations Quotation[]
+
+  @@index([name])
+  @@index([fetchedAt])
+}
+
+model Quotation {
+  id              Int       @id @default(autoincrement())
+  fileName        String
+  fileSize        Int
+  uploadedAt      DateTime  @default(now())
+  status          String    @default("pending") // pending|parsing|parsed|matched|compared|failed
+  errorMsg        String?
+  rawResponse     Json?
+  aiCommentary    String?
+  aiCommentaryAt  DateTime?
+
+  priceSummaryId Int?
+  priceSummary   PriceSummary? @relation(fields: [priceSummaryId], references: [id], onDelete: SetNull)
+
+  items QuotationItem[]
+
+  @@index([uploadedAt])
+  @@index([priceSummaryId])
+}
+
+model QuotationItem {
+  id          Int    @id @default(autoincrement())
+  quotationId Int
+  rowIndex    Int
+  itemName    String
+  spec        String?
+  unit        String?
+  quantity    Float?
+  unitPrice   Float?
+  totalPrice  Float?
+
+  // 매칭/비교 결과
+  matchedPriceId    Int?
+  matchedConfidence Float? // 0..1
+  marketPrice       Float? // 매칭된 PriceHistory.price (비교용)
+  marketRegion      String?
+  deviationPct      Float? // (unitPrice - marketPrice) / marketPrice * 100
+
+  quotation    Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  matchedPrice PriceHistory? @relation(fields: [matchedPriceId], references: [id], onDelete: SetNull)
+
+  @@index([quotationId])
+  @@index([matchedPriceId])
+}
