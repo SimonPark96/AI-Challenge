@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "setup": "tsx scripts/setup.ts",
+    "postinstall": "prisma generate",
     "verify:kpi": "tsx scripts/verify-kpi-login.ts",
     "verify:kprc": "tsx scripts/verify-kprc-search.ts",
     "verify:cmpi": "tsx scripts/verify-cmpi-search.ts",
