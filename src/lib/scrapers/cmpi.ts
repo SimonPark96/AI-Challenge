@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { extractTable } from "./extract-table";
+import { autoAcceptDialogs } from "./dialog";
 import type { Credentials, ScrapeOptions, ScrapedTable } from "./types";
 
 const HOME_URL = "https://cmpi.or.kr/frame/";
@@ -16,6 +17,7 @@ export async function scrapeCmpi(
 
   const browser = await chromium.launch({ headless, slowMo });
   const context = await browser.newContext();
+  autoAcceptDialogs(context, log);
   let page = await context.newPage();
 
   try {
@@ -36,6 +38,12 @@ export async function scrapeCmpi(
       .waitForLoadState("networkidle", { timeout: 15_000 })
       .catch(() => {});
     log(`  → 로그인 후 URL: ${page.url()}`);
+    if (/member_login\.asp/i.test(page.url())) {
+      throw new Error(
+        `CMPI 로그인 실패: 클릭 후에도 ${page.url()} 페이지에 머물러 있습니다. ` +
+          `(자격증명 오류 또는 로그인 버튼 셀렉터 미스매치 가능)`
+      );
+    }
 
     log(`[3/5] 검색어 입력 + 검색 ("${keyword}")`);
     const searchInput = page.locator("input#ser_keyword").first();

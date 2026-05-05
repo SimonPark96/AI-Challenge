@@ -55,7 +55,7 @@ export function DbSearch() {
         <select
           value={source}
           onChange={(e) => setSource(e.target.value)}
-          className="border border-slate-300 rounded px-2 py-1.5 text-sm"
+          className="border border-slate-300 rounded px-2 py-1.5 text-sm bg-white text-slate-900"
         >
           <option value="">전체 소스</option>
           <option value="kpi">kpi</option>
@@ -68,14 +68,14 @@ export function DbSearch() {
           value={itemName}
           onChange={(e) => setItemName(e.target.value)}
           placeholder="품명 (부분일치)"
-          className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-[200px]"
+          className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-[200px] bg-white text-slate-900 placeholder:text-slate-400"
           onKeyDown={(e) => e.key === "Enter" && search()}
         />
         <input
           value={region}
           onChange={(e) => setRegion(e.target.value)}
           placeholder="지역"
-          className="border border-slate-300 rounded px-2 py-1.5 text-sm w-28"
+          className="border border-slate-300 rounded px-2 py-1.5 text-sm w-28 bg-white text-slate-900 placeholder:text-slate-400"
           onKeyDown={(e) => e.key === "Enter" && search()}
         />
         <button
@@ -104,7 +104,7 @@ export function DbSearch() {
               <th className="text-center p-2 font-medium text-slate-600">embed</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="text-slate-800">
             {rows.map((p) => (
               <tr
                 key={p.id}
@@ -113,9 +113,9 @@ export function DbSearch() {
                 <td className="p-2 font-mono text-slate-500">{p.id}</td>
                 <td className="p-2">{p.source}</td>
                 <td className="p-2">{p.itemName}</td>
-                <td className="p-2 text-slate-600">{p.spec ?? "-"}</td>
-                <td className="p-2 text-slate-600">{p.unit ?? "-"}</td>
-                <td className="p-2 text-slate-600">{p.region ?? "-"}</td>
+                <td className="p-2 text-slate-700">{p.spec ?? "-"}</td>
+                <td className="p-2 text-slate-700">{p.unit ?? "-"}</td>
+                <td className="p-2 text-slate-700">{p.region ?? "-"}</td>
                 <td className="p-2 text-right font-mono">
                   {p.price !== null ? p.price.toLocaleString() : "-"}
                 </td>

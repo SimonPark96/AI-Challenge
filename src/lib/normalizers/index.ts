@@ -18,6 +18,16 @@ const META = {
 };
 const PRICE_HEADERS = ["단가", "가격", "price", "현재가", "당월가"];
 
+// 가격/지역으로 오인되면 안 되는 컬럼들 — region row 도, extras 도 만들지 않고 버린다.
+// (KPRC 의 "페이지" 가 페이지번호인데 숫자라 가격으로 파싱되던 케이스)
+const SKIP_HEADERS = ["페이지", "page"];
+
+function isSkipHeader(h: string): boolean {
+  if (!h) return false;
+  const lower = h.toLowerCase();
+  return SKIP_HEADERS.some((s) => lower.includes(s.toLowerCase()));
+}
+
 /**
  * 사이트별 raw 테이블을 공통 NormalizedRow[] 로 변환.
  *
@@ -52,8 +62,13 @@ export function normalize(table: ScrapedTable): NormalizedRow[] {
     }));
   }
 
+  const skipIdxs = new Set<number>();
+  headers.forEach((h, i) => {
+    if (isSkipHeader(h)) skipIdxs.add(i);
+  });
+  // skipIdxs 를 usedIdxs 에 합치면 region row · extras 양쪽에서 자동으로 제외됨.
   const usedIdxs = new Set(
-    [idxName, idxSpec, idxUnit, idxPrice].filter((i) => i >= 0)
+    [idxName, idxSpec, idxUnit, idxPrice, ...skipIdxs].filter((i) => i >= 0)
   );
   const out: NormalizedRow[] = [];
 
@@ -125,10 +140,70 @@ function parsePrice(s: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-// 사이트별 dispatch (현재는 모두 공통 로직, 추후 사이트별 quirks 추가 시 분기)
+/**
+ * CMPI 전용 normalizer.
+ *
+ * CMPI 의 table.tbtype03 은 다단 헤더이고 leaf 헤더가 의미 없는 표식(①/②)이라
+ * 공통 normalize 로는 처리 불가. 구조는:
+ *   headerRows[0] = ["품 명", "규 격", "단 위", "가 격", "페이지"]   (상단 group)
+ *   headerRows[1] = [지역1, 지역2, ...]                              ("가 격" 하위)
+ *   headerRows[2] = ["①", "②", "②", ...]                             (의미 없음)
+ *   row cells     = [품명, 규격, 단위, 지역1가, 지역2가, ..., 페이지]
+ *
+ * 메타 3개(품명/규격/단위) + 마지막 1개(페이지) 를 제외한 가운데 컬럼을
+ * 지역별 가격으로 분해해 row 당 region:price 쌍을 N 개 생성한다.
+ */
+function normalizeCmpi(table: ScrapedTable): NormalizedRow[] {
+  const headerRows = table.headerRows;
+  const top = headerRows[0] ?? [];
+  const regionRow = headerRows[1] ?? [];
+  const looksLikeCmpi =
+    top.length >= 4 &&
+    top[0]?.replace(/\s/g, "").includes("품명") &&
+    top.some((h) => h?.replace(/\s/g, "").includes("가격"));
+  if (!looksLikeCmpi) {
+    return normalize(table);
+  }
+
+  const out: NormalizedRow[] = [];
+  for (const row of table.rows) {
+    // row 키는 col0/col1/... 형식. 숫자 접미사 순으로 정렬해 안전하게 배열화.
+    const cells = Object.entries(row)
+      .map(([k, v]) => [parseInt(k.replace(/^col/, ""), 10), v] as const)
+      .filter(([i]) => Number.isFinite(i))
+      .sort(([a], [b]) => a - b)
+      .map(([, v]) => v);
+
+    if (cells.length < 5) continue;
+    const itemName = cells[0];
+    if (!itemName) continue;
+    const spec = cells[1] || undefined;
+    const unit = cells[2] || undefined;
+
+    // 마지막 컬럼은 페이지 — 제외. 가운데 모두 가격 후보.
+    const priceCells = cells.slice(3, cells.length - 1);
+    priceCells.forEach((cell, i) => {
+      const price = parsePrice(cell);
+      if (price === undefined) return;
+      const region = regionRow[i]?.replace(/\s+/g, "") || `col${i + 3}`;
+      out.push({
+        itemName,
+        spec,
+        unit,
+        region,
+        price,
+        currency: "KRW",
+      });
+    });
+  }
+  return out;
+}
+
+// 사이트별 dispatch (cmpi 만 다단 헤더 — 전용 처리)
 export function normalizeForSource(
-  _source: ScrapeSource,
+  source: ScrapeSource,
   table: ScrapedTable
 ): NormalizedRow[] {
+  if (source === "cmpi") return normalizeCmpi(table);
   return normalize(table);
 }

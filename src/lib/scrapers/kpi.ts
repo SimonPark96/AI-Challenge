@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { extractTable } from "./extract-table";
+import { autoAcceptDialogs } from "./dialog";
 import type { Credentials, ScrapeOptions, ScrapedTable } from "./types";
 
 const LOGIN_URL = "https://www.kpi.or.kr/www/member/login.asp";
@@ -16,6 +17,7 @@ export async function scrapeKpi(
 
   const browser = await chromium.launch({ headless, slowMo });
   const context = await browser.newContext();
+  autoAcceptDialogs(context, log);
   const page = await context.newPage();
 
   try {

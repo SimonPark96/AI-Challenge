@@ -544,7 +544,7 @@ function PricesSection() {
         <select
           value={source}
           onChange={(e) => setSource(e.target.value)}
-          className="border rounded px-2 py-1"
+          className="border rounded px-2 py-1 bg-white text-gray-900"
         >
           <option value="">전체 소스</option>
           <option value="kpi">kpi</option>
@@ -555,14 +555,14 @@ function PricesSection() {
           value={itemName}
           onChange={(e) => setItemName(e.target.value)}
           placeholder="품명 (부분일치)"
-          className="border rounded px-2 py-1"
+          className="border rounded px-2 py-1 bg-white text-gray-900 placeholder:text-gray-400"
         />
         <input
           value={runId}
           onChange={(e) => setRunId(e.target.value)}
           placeholder="runId"
           type="number"
-          className="border rounded px-2 py-1 w-24"
+          className="border rounded px-2 py-1 w-24 bg-white text-gray-900 placeholder:text-gray-400"
         />
         <button
           onClick={search}
@@ -572,12 +572,12 @@ function PricesSection() {
           {loading ? "..." : "조회"}
         </button>
         {count !== null && (
-          <span className="text-sm text-gray-500">{count}건</span>
+          <span className="text-sm text-gray-600">{count}건</span>
         )}
       </div>
       <div className="overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
+        <table className="w-full text-sm text-gray-900">
+          <thead className="bg-gray-100 text-gray-900">
             <tr>
               <th className="text-left p-2">id</th>
               <th className="text-left p-2">runId</th>
@@ -591,7 +591,7 @@ function PricesSection() {
               <th className="text-left p-2">fetchedAt</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="bg-white">
             {prices.map((p) => (
               <tr key={p.id} className="border-t hover:bg-gray-50">
                 <td className="p-2 font-mono">{p.id}</td>
@@ -611,7 +611,7 @@ function PricesSection() {
                     <span className="text-gray-400">—</span>
                   )}
                 </td>
-                <td className="p-2 text-xs text-gray-500">
+                <td className="p-2 text-xs text-gray-600">
                   {new Date(p.fetchedAt).toLocaleDateString()}
                 </td>
               </tr>

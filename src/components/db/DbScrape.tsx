@@ -48,7 +48,7 @@ export function DbScrape() {
         <select
           value={source}
           onChange={(e) => setSource(e.target.value as Source)}
-          className="border border-slate-300 rounded px-2 py-1.5 text-sm min-w-[220px]"
+          className="border border-slate-300 rounded px-2 py-1.5 text-sm min-w-[220px] bg-white text-slate-900"
         >
           {(Object.keys(SOURCE_LABELS) as Source[]).map((s) => (
             <option key={s} value={s}>
@@ -60,7 +60,7 @@ export function DbScrape() {
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           placeholder="검색어"
-          className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-[200px]"
+          className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-[200px] bg-white text-slate-900 placeholder:text-slate-400"
         />
         <button
           onClick={run}

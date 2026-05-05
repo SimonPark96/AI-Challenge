@@ -15,7 +15,11 @@
       "Bash(echo \"exit=$?\")",
       "Bash(npx prisma *)",
       "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
-      "PowerShell(Get-Process *)"
+      "PowerShell(Get-Process *)",
+      "Bash(npm run *)",
+      "Bash(DATABASE_URL=\"file:./prisma/dev.db\" npx prisma *)",
+      "Bash(npx playwright *)",
+      "Bash(npx tsx *)"
     ]
   }
 }

@@ -2,6 +2,7 @@ import { DbSummary } from "@/components/db/DbSummary";
 import { DbSearch } from "@/components/db/DbSearch";
 import { DbPriceSummarySearch } from "@/components/db/DbPriceSummarySearch";
 import { DbScrape } from "@/components/db/DbScrape";
+import { DbAutoScrape } from "@/components/db/DbAutoScrape";
 import { DbExcelImport } from "@/components/db/DbExcelImport";
 import { DbReset } from "@/components/db/DbReset";
 
@@ -18,6 +19,7 @@ export default function DbPage() {
 
       <DbSummary />
       <DbScrape />
+      <DbAutoScrape />
       <DbSearch />
       <DbExcelImport />
       <DbPriceSummarySearch />

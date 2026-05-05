@@ -1,5 +1,6 @@
 import { chromium, type Locator, type Page } from "playwright";
 import { extractTable } from "./extract-table";
+import { autoAcceptDialogs } from "./dialog";
 import type {
   Credentials,
   ExtractedTable,
@@ -21,6 +22,7 @@ export async function scrapeKprc(
 
   const browser = await chromium.launch({ headless, slowMo });
   const context = await browser.newContext();
+  autoAcceptDialogs(context, log);
   let page = await context.newPage();
 
   try {
