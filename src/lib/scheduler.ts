@@ -4,8 +4,17 @@ import { scrapeAndInsertWages, WAGE_CATE_CDS } from "./scrape/run-wage";
 import type { ScrapeSource } from "./scrapers/types";
 import { prisma } from "./prisma";
 
-// 자동 스크래핑 대상 — 키워드와 소스. 손쉬운 수정 위해 모듈 상단 상수로 둠.
-export const AUTO_KEYWORDS: readonly string[] = ["폴리카보네이트 복층판", "AL 몰드", "AL 시트", "이형철근", "강판"];
+// 자동 스크래핑 대상 — 키워드는 사용자가 UI 에서 편집 가능 (state.keywords).
+// DEFAULT_KEYWORDS 는 최초 시작 시 / state 비어있을 때의 fallback.
+const DEFAULT_KEYWORDS: readonly string[] = [
+  "폴리카보네이트 복층판",
+  "AL 몰드",
+  "AL 시트",
+  "이형철근",
+  "강판",
+];
+
+const MAX_KEYWORDS = 30;
 
 export const AUTO_SOURCES: readonly ScrapeSource[] = ["kpi", "kprc", "cmpi"];
 
@@ -65,6 +74,7 @@ interface SchedulerState {
   startedAt: string | null;
   totalCycles: number;
   skippedCycles: number; // 직전 사이클이 끝나지 않아 스킵된 횟수
+  keywords: string[]; // 자재 자동 스크래핑 키워드. UI 에서 편집 가능
 }
 
 // HMR 회피: dev 모드에서 module reload 가 일어나도 cron task / state 가 유실되지 않도록
@@ -84,7 +94,13 @@ const state: SchedulerState = globalForScheduler.__schedulerState ?? {
   startedAt: null,
   totalCycles: 0,
   skippedCycles: 0,
+  keywords: [...DEFAULT_KEYWORDS],
 };
+
+// HMR 보존된 구 state 에 keywords 필드가 없을 수 있음 → 보장.
+if (!Array.isArray(state.keywords) || state.keywords.length === 0) {
+  state.keywords = [...DEFAULT_KEYWORDS];
+}
 
 if (process.env.NODE_ENV !== "production") {
   globalForScheduler.__schedulerState = state;
@@ -109,8 +125,12 @@ async function runCycle(trigger: "cron" | "manual"): Promise<CycleSummary | null
   let rolledBackWageRuns = 0;
   let cancelled = false;
   let committed = false;
+  // 사이클 시작 시점에 키워드 snapshot — 도중에 사용자가 키워드를 편집해도
+  // 진행 중인 사이클은 일관된 목록으로 끝까지 완료. 새 키워드는 다음 사이클부터 적용.
+  const keywords = [...state.keywords];
+
   // 사이클 step 수 = 자재 (sources × keywords) + 노임 1
-  const expectedTotal = AUTO_SOURCES.length * AUTO_KEYWORDS.length + 1;
+  const expectedTotal = AUTO_SOURCES.length * keywords.length + 1;
   state.cycleProgress = {
     total: expectedTotal,
     completed: 0,
@@ -127,7 +147,7 @@ async function runCycle(trigger: "cron" | "manual"): Promise<CycleSummary | null
     console.log(`[scheduler] 사이클 시작 — 기존 데이터 보존, 신규 ScrapeRun 누적 후 성공 시에만 swap`);
 
     outer: for (const source of AUTO_SOURCES) {
-      for (const keyword of AUTO_KEYWORDS) {
+      for (const keyword of keywords) {
         if (state.cancelRequested) {
           cancelled = true;
           console.log(
@@ -323,6 +343,42 @@ export async function runCycleNow(): Promise<CycleSummary | null> {
   return runCycle("manual");
 }
 
+/**
+ * 자재 자동 스크래핑 키워드 갱신.
+ * 정규화: trim → 빈 문자열 제거 → (공백/대소문자 정규화 기준) 중복 제거 →
+ * 표시용은 trim 만 적용한 원래 문자열 유지.
+ * 진행 중인 사이클이 있으면 그 사이클은 기존 키워드로 끝나고, 다음 사이클부터 새 목록 적용.
+ */
+export function setSchedulerKeywords(input: string[]): {
+  ok: true;
+  keywords: string[];
+} {
+  if (!Array.isArray(input)) {
+    throw new Error("keywords 는 문자열 배열이어야 합니다.");
+  }
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const raw of input) {
+    const k = String(raw ?? "").trim();
+    if (!k) continue;
+    const key = k.toLowerCase().replace(/\s+/g, " ");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(k);
+  }
+  if (normalized.length === 0) {
+    throw new Error("키워드는 최소 1개 이상이어야 합니다.");
+  }
+  if (normalized.length > MAX_KEYWORDS) {
+    throw new Error(
+      `키워드는 최대 ${MAX_KEYWORDS}개까지 등록할 수 있습니다.`
+    );
+  }
+  state.keywords = normalized;
+  console.log(`[scheduler] 키워드 갱신 (${normalized.length}개): ${normalized.join(", ")}`);
+  return { ok: true, keywords: normalized };
+}
+
 export interface SchedulerStatus {
   enabled: boolean;
   schedule: string;
@@ -349,7 +405,7 @@ export function getSchedulerStatus(): SchedulerStatus {
     totalCycles: state.totalCycles,
     skippedCycles: state.skippedCycles,
     lastCycle: state.lastCycle,
-    keywords: AUTO_KEYWORDS,
+    keywords: state.keywords,
     sources: AUTO_SOURCES,
     wageCategories: WAGE_CATE_CDS,
   };

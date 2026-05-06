@@ -39,7 +39,7 @@ export interface MatchResult {
   topCandidates?: MatchCandidateDebug[]; // 진단용 (선택)
 }
 
-const EMPTY: MatchResult = {
+export const EMPTY_MATCH: MatchResult = {
   source: "none",
   matchedPriceId: null,
   matchedWageId: null,
@@ -50,6 +50,17 @@ const EMPTY: MatchResult = {
   matchedSpec: null,
   method: "none",
 };
+
+const EMPTY = EMPTY_MATCH;
+
+/**
+ * 매칭 제외 품목 — "장비비" 처럼 시장단가 비교 대상이 아닌 표준 합계 항목.
+ * 공백/대소문자 무시 후 정확 일치.
+ */
+export function isMatchExcluded(itemName: string): boolean {
+  const normalized = itemName.replace(/\s+/g, "").toLowerCase();
+  return normalized === "장비비";
+}
 
 const MAX_CANDIDATES = 2000;
 const PRICE_TIEBREAK_EPSILON = 0.05;

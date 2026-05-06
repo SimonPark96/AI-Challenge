@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getSchedulerStatus,
   runCycleNow,
+  setSchedulerKeywords,
   startScheduler,
   stopScheduler,
 } from "@/lib/scheduler";
@@ -13,23 +14,31 @@ export async function GET() {
   return NextResponse.json(getSchedulerStatus());
 }
 
-type Action = "start" | "stop" | "runNow";
+type Action = "start" | "stop" | "runNow" | "setKeywords";
 
 export async function POST(req: Request) {
-  let body: { action?: unknown; schedule?: unknown } = {};
+  let body: { action?: unknown; schedule?: unknown; keywords?: unknown } = {};
   try {
     body = await req.json();
   } catch {
     return NextResponse.json(
-      { error: "Body must be JSON: { action: 'start'|'stop'|'runNow', schedule?: string }" },
+      {
+        error:
+          "Body must be JSON: { action: 'start'|'stop'|'runNow'|'setKeywords', schedule?, keywords? }",
+      },
       { status: 400 }
     );
   }
 
   const action = body.action as Action | undefined;
-  if (action !== "start" && action !== "stop" && action !== "runNow") {
+  if (
+    action !== "start" &&
+    action !== "stop" &&
+    action !== "runNow" &&
+    action !== "setKeywords"
+  ) {
     return NextResponse.json(
-      { error: "action must be one of: start, stop, runNow" },
+      { error: "action must be one of: start, stop, runNow, setKeywords" },
       { status: 400 }
     );
   }
@@ -45,6 +54,16 @@ export async function POST(req: Request) {
     }
     if (action === "stop") {
       const r = stopScheduler();
+      return NextResponse.json({ ...r, status: getSchedulerStatus() });
+    }
+    if (action === "setKeywords") {
+      if (!Array.isArray(body.keywords)) {
+        return NextResponse.json(
+          { error: "keywords 는 문자열 배열이어야 합니다." },
+          { status: 400 }
+        );
+      }
+      const r = setSchedulerKeywords(body.keywords.map(String));
       return NextResponse.json({ ...r, status: getSchedulerStatus() });
     }
     // runNow — 비동기. 수동 실행은 cycleInProgress 가드를 그대로 따름.

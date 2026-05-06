@@ -73,20 +73,25 @@ model PriceHistory {
 // 외부 단가 자료 일괄 등록 결과 (명칭/규격 단위의 단가합계).
 // PriceHistory 와 분리: 매칭 흐름이 다름 — 협력사 일위대가의 합계 비교용.
 model PriceSummary {
-  id           Int      @id @default(autoincrement())
-  name         String
-  spec         String?
-  unit         String?
-  totalCost    Float?
-  materialCost Float?
-  laborCost    Float?
-  expenseCost  Float?
-  sourceFile   String?
-  sourceVia    String? // "spreadsheet" | "image"
-  rawRow       Json?
-  embedding    Json? // text-embedding-3-small 1536차원
-  fetchedAt    DateTime
-  createdAt    DateTime @default(now())
+  id                Int       @id @default(autoincrement())
+  name              String
+  spec              String?
+  unit              String?
+  totalCost         Float?
+  materialCost      Float?
+  laborCost         Float?
+  expenseCost       Float?
+  sourceFile        String?
+  sourceVia         String? // "spreadsheet" | "image"
+  // 파일/프로젝트 단위 메타 (같은 import 안의 모든 행이 동일 값)
+  projectName       String?
+  businessDivision  String?
+  firstContractDate DateTime?
+  lastContractDate  DateTime?
+  rawRow            Json?
+  embedding         Json? // text-embedding-3-small 1536차원
+  fetchedAt         DateTime
+  createdAt         DateTime  @default(now())
 
   matchedQuotations Quotation[]
 

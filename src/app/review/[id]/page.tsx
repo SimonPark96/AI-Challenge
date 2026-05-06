@@ -93,7 +93,7 @@ export default async function ReviewByIdPage({
     expenseCost: num(meta?.expenseCost),
   };
 
-  // 세부 항목별 단가 합계: 각 라인의 시장단가 × 수량 합산 (매칭된 행만)
+  // AI 매칭 단가 합계: 각 라인의 시장단가 × 수량 합산 (매칭된 행만)
   const itemMatched = quotation.items.filter((it) => it.marketPrice != null);
   const itemMarketTotal =
     itemMatched.length > 0
@@ -140,8 +140,6 @@ export default async function ReviewByIdPage({
         meta={meta}
       />
 
-      <ComparisonTable quotationId={quotation.id} items={items} />
-
       <TotalComparison
         partnerTotal={partnerTotal}
         partnerCostBreakdown={partnerCostBreakdown}
@@ -166,6 +164,8 @@ export default async function ReviewByIdPage({
         itemTotalCount={quotation.items.length}
         itemMatchedCount={itemMatched.length}
       />
+
+      <ComparisonTable quotationId={quotation.id} items={items} />
 
       {items.length > 0 && (
         <AICommentary

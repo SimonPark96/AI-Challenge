@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Sparkles, RotateCcw } from "lucide-react";
 import { StepIndicator } from "@/components/StepIndicator";
 import { QuoteUpload } from "@/components/QuoteUpload";
 import { RequestFormSection } from "@/components/RequestForm";
 import { PriceSummarySelector } from "@/components/PriceSummarySelector";
+import { AiChatBot } from "@/components/chat/AiChatBot";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useRequestStore } from "@/lib/stores/request-store";
 
 export default function RequestPage() {
@@ -14,23 +17,52 @@ export default function RequestPage() {
   const submitting = useRequestStore((s) => s.submitting);
   const submitError = useRequestStore((s) => s.submitError);
   const status = useRequestStore((s) => s.status);
+  const resetForm = useRequestStore((s) => s.resetForm);
+  const [navigating, setNavigating] = useState(false);
 
   async function onSubmit() {
     const r = await submit();
-    if (r) router.push(`/review/${r.quotationId}`);
+    if (r) {
+      // submitting=false 후 router.push 사이 깜빡임 방지 — 페이지 unmount 까지 유지
+      setNavigating(true);
+      router.push(`/review/${r.quotationId}`);
+    }
+  }
+
+  const isExtracting = status === "parsing";
+  const isAnalyzing = submitting || navigating;
+
+  function onReset() {
+    if (
+      window.confirm(
+        "입력한 모든 내용(파일·요청 정보·품목·단가·매칭 선택)이 초기화됩니다. 진행할까요?"
+      )
+    ) {
+      resetForm();
+    }
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <header>
+    <div className="p-8 max-w-7xl mx-auto space-y-4">
+      <header className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">
           01. 단가 검토 요청
         </h1>
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={submitting || status === "parsing"}
+          className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-rose-600 border border-slate-300 hover:border-rose-300 hover:bg-rose-50 px-3 py-1.5 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+          title="모든 입력 내용 초기화"
+        >
+          <RotateCcw size={12} />
+          전체 리셋
+        </button>
       </header>
 
       <StepIndicator activeStep={1} />
 
-      <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
+      <section className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
@@ -72,6 +104,19 @@ export default function RequestPage() {
           {submitting ? "분석 중..." : "AI 분석 시작"}
         </button>
       </div>
+
+      <AiChatBot mode="search" />
+
+      <LoadingOverlay
+        show={isExtracting}
+        title="파일을 읽고 있어요"
+        description="견적서에서 라인 아이템과 단가 합계를 추출 중입니다."
+      />
+      <LoadingOverlay
+        show={isAnalyzing}
+        title="AI 가 분석 중이에요"
+        description="입력하신 항목들을 시장단가와 매칭하고 편차를 계산합니다."
+      />
     </div>
   );
 }

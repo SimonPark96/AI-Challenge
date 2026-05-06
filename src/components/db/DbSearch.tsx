@@ -30,6 +30,7 @@ interface PriceRow {
 export function DbSearch() {
   const [source, setSource] = useState("");
   const [itemName, setItemName] = useState("");
+  const [spec, setSpec] = useState("");
   const [region, setRegion] = useState("");
   const [rows, setRows] = useState<PriceRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,6 +43,7 @@ export function DbSearch() {
       const params = new URLSearchParams({ limit: "10000" });
       if (source) params.set("source", source);
       if (itemName.trim()) params.set("itemName", itemName.trim());
+      if (spec.trim()) params.set("spec", spec.trim());
       if (region.trim()) params.set("region", region.trim());
       const res = await fetch(`/api/prices?${params.toString()}`);
       const data = await res.json();
@@ -79,6 +81,13 @@ export function DbSearch() {
           onChange={(e) => setItemName(e.target.value)}
           placeholder="품명 (부분일치, 공백 무시)"
           className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-[200px] bg-white text-slate-900 placeholder:text-slate-400"
+          onKeyDown={(e) => e.key === "Enter" && search()}
+        />
+        <input
+          value={spec}
+          onChange={(e) => setSpec(e.target.value)}
+          placeholder="규격 (부분일치, 공백 무시)"
+          className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-[180px] bg-white text-slate-900 placeholder:text-slate-400"
           onKeyDown={(e) => e.key === "Enter" && search()}
         />
         <input

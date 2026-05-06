@@ -83,6 +83,10 @@ export interface SelectedSummary {
   expenseCost: number | null;
   sourceFile: string | null;
   sourceVia: string | null;
+  projectName: string | null;
+  businessDivision: string | null;
+  firstContractDate: string | null; // ISO 문자열 (API JSON 응답)
+  lastContractDate: string | null;
   // 자동 매칭 결과 표시용 (선택 사항 — review/analyze 등에서는 무시)
   confidence?: number;
   method?: "embedding" | "deterministic";

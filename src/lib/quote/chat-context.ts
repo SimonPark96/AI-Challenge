@@ -124,15 +124,18 @@ export async function buildChatContext(
       const w = it.matchedWage;
       const cateLabel = WAGE_CATE_LABELS[w.cateCd] ?? w.cateCd;
       detail.push(
-        `매칭=노임/${w.jobName} [${(w.source ?? "kpi-wage").toUpperCase()} · ${cateLabel}${w.basis ? ` · ${w.basis}` : ""}]`
+        `매칭=노임/${w.jobName} [${(
+          w.source ?? "kpi-wage"
+        ).toUpperCase()} · ${cateLabel}${w.basis ? ` · ${w.basis}` : ""}]`
       );
-      if (w.wageRun?.sourceUrl)
-        detail.push(`출처URL=${w.wageRun.sourceUrl}`);
+      if (w.wageRun?.sourceUrl) detail.push(`출처URL=${w.wageRun.sourceUrl}`);
       detail.push(`수집일=${ymd(w.fetchedAt)}`);
     } else if (it.matchedPrice) {
       const p = it.matchedPrice;
       detail.push(
-        `매칭=자재/${p.itemName}${p.spec ? ` (${p.spec})` : ""} [${p.source.toUpperCase()}${p.region ? ` · ${p.region}` : ""}]`
+        `매칭=자재/${p.itemName}${
+          p.spec ? ` (${p.spec})` : ""
+        } [${p.source.toUpperCase()}${p.region ? ` · ${p.region}` : ""}]`
       );
       if (p.scrapeRun?.sourceUrl)
         detail.push(`출처URL=${p.scrapeRun.sourceUrl}`);
@@ -143,7 +146,9 @@ export async function buildChatContext(
 
     if (it.marketPrice != null) {
       detail.push(
-        `시장가=${it.marketPrice.toLocaleString()}원${it.marketRegion ? ` (${it.marketRegion})` : ""}`
+        `시장가=${it.marketPrice.toLocaleString()}원${
+          it.marketRegion ? ` (${it.marketRegion})` : ""
+        }`
       );
     }
     if (it.deviationPct != null) {
@@ -202,9 +207,11 @@ export async function buildChatContext(
     `- 시장 대비 비쌈 ${overCount}건 / 저렴 ${underCount}건`,
   ];
 
-  totalsBlock.push("", "[협력사 합계]");
+  totalsBlock.push("", "[협력사 견적]");
   totalsBlock.push(
-    `- 합계 ${partnerTotal != null ? partnerTotal.toLocaleString() + "원" : "N/A"}`
+    `- 합계 ${
+      partnerTotal != null ? partnerTotal.toLocaleString() + "원" : "N/A"
+    }`
   );
   if (
     partnerMaterial != null ||
@@ -212,22 +219,50 @@ export async function buildChatContext(
     partnerExpense != null
   ) {
     totalsBlock.push(
-      `- 재료비 ${partnerMaterial != null ? partnerMaterial.toLocaleString() + "원" : "N/A"} / 노무비 ${partnerLabor != null ? partnerLabor.toLocaleString() + "원" : "N/A"} / 경비 ${partnerExpense != null ? partnerExpense.toLocaleString() + "원" : "N/A"}`
+      `- 재료비 ${
+        partnerMaterial != null
+          ? partnerMaterial.toLocaleString() + "원"
+          : "N/A"
+      } / 노무비 ${
+        partnerLabor != null ? partnerLabor.toLocaleString() + "원" : "N/A"
+      } / 경비 ${
+        partnerExpense != null ? partnerExpense.toLocaleString() + "원" : "N/A"
+      }`
     );
   }
 
   const summary = quotation.priceSummary;
   if (summary) {
-    totalsBlock.push("", "[일괄 단가 매칭 자료]");
+    totalsBlock.push("", "[사내 DB 단가]");
     totalsBlock.push(
-      `- 명칭: ${summary.name}${summary.spec ? ` / ${summary.spec}` : ""}${summary.unit ? ` / ${summary.unit}` : ""}`
+      `- 명칭: ${summary.name}${summary.spec ? ` / ${summary.spec}` : ""}${
+        summary.unit ? ` / ${summary.unit}` : ""
+      }`
     );
     totalsBlock.push(
-      `- 합계 ${summary.totalCost != null ? summary.totalCost.toLocaleString() + "원" : "N/A"} / 재료비 ${summary.materialCost != null ? summary.materialCost.toLocaleString() + "원" : "N/A"} / 노무비 ${summary.laborCost != null ? summary.laborCost.toLocaleString() + "원" : "N/A"} / 경비 ${summary.expenseCost != null ? summary.expenseCost.toLocaleString() + "원" : "N/A"}`
+      `- 합계 ${
+        summary.totalCost != null
+          ? summary.totalCost.toLocaleString() + "원"
+          : "N/A"
+      } / 재료비 ${
+        summary.materialCost != null
+          ? summary.materialCost.toLocaleString() + "원"
+          : "N/A"
+      } / 노무비 ${
+        summary.laborCost != null
+          ? summary.laborCost.toLocaleString() + "원"
+          : "N/A"
+      } / 경비 ${
+        summary.expenseCost != null
+          ? summary.expenseCost.toLocaleString() + "원"
+          : "N/A"
+      }`
     );
     if (summary.sourceFile)
       totalsBlock.push(
-        `- 출처 파일: ${summary.sourceFile}${summary.sourceVia ? ` (${summary.sourceVia})` : ""}`
+        `- 출처 파일: ${summary.sourceFile}${
+          summary.sourceVia ? ` (${summary.sourceVia})` : ""
+        }`
       );
     if (
       partnerTotal != null &&
@@ -237,31 +272,39 @@ export async function buildChatContext(
       const dev =
         ((partnerTotal - summary.totalCost) / summary.totalCost) * 100;
       totalsBlock.push(
-        `- 협력사 vs 매칭자료 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
+        `- 협력사 견적 vs 사내 DB 단가 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
       );
     }
   } else {
-    totalsBlock.push("", "[일괄 단가 매칭 자료] 선택되지 않음");
+    totalsBlock.push("", "[사내 DB 단가] 선택되지 않음");
   }
 
   if (itemMarketTotal != null) {
-    totalsBlock.push("", "[세부 항목별 시장단가 합계]");
+    totalsBlock.push("", "[AI 매칭 단가 합계]");
     totalsBlock.push(
-      `- 매칭된 ${matchedItems.length}/${quotation.items.length}건의 시장단가 × 수량 합산: ${itemMarketTotal.toLocaleString()}원`
+      `- 매칭된 ${matchedItems.length}/${
+        quotation.items.length
+      }건의 시장단가 × 수량 합산: ${itemMarketTotal.toLocaleString()}원`
     );
     totalsBlock.push(
-      `- 재료비(자재 매칭) ${itemMaterialTotal != null ? itemMaterialTotal.toLocaleString() + "원" : "N/A"} / 노무비(노임 매칭) ${itemLaborTotal != null ? itemLaborTotal.toLocaleString() + "원" : "N/A"} / 경비 N/A (라인에서 도출 불가)`
+      `- 재료비(자재 매칭) ${
+        itemMaterialTotal != null
+          ? itemMaterialTotal.toLocaleString() + "원"
+          : "N/A"
+      } / 노무비(노임 매칭) ${
+        itemLaborTotal != null ? itemLaborTotal.toLocaleString() + "원" : "N/A"
+      } / 경비 N/A (라인에서 도출 불가)`
     );
     if (partnerTotal != null && itemMarketTotal !== 0) {
       const dev = ((partnerTotal - itemMarketTotal) / itemMarketTotal) * 100;
       totalsBlock.push(
-        `- 협력사 vs 세부합계 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
+        `- 협력사 견적 vs AI 매칭 단가 합계 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
       );
     }
   } else {
     totalsBlock.push(
       "",
-      "[세부 항목별 시장단가 합계] 매칭된 항목 없어 산출 불가"
+      "[AI 매칭 단가 합계] 매칭된 항목 없어 산출 불가"
     );
   }
 

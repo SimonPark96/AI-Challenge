@@ -16,6 +16,7 @@ export async function GET(req: Request) {
   );
   const source = searchParams.get("source") ?? undefined;
   const itemName = searchParams.get("itemName")?.trim() ?? "";
+  const spec = searchParams.get("spec")?.trim() ?? "";
   const region = searchParams.get("region") ?? undefined;
   const scrapeRunIdRaw = searchParams.get("runId");
   const scrapeRunId = scrapeRunIdRaw ? Number(scrapeRunIdRaw) : undefined;
@@ -35,12 +36,21 @@ export async function GET(req: Request) {
     take: limit,
   });
 
-  const filtered = itemName
-    ? (() => {
-        const q = normalize(itemName);
-        return rows.filter((r) => normalize(r.itemName).includes(q));
-      })()
-    : rows;
+  const itemNameQ = itemName ? normalize(itemName) : "";
+  const specQ = spec ? normalize(spec) : "";
+  const filtered =
+    itemNameQ || specQ
+      ? rows.filter((r) => {
+          if (itemNameQ && !normalize(r.itemName).includes(itemNameQ)) {
+            return false;
+          }
+          if (specQ) {
+            const s = r.spec ? normalize(r.spec) : "";
+            if (!s.includes(specQ)) return false;
+          }
+          return true;
+        })
+      : rows;
 
   // 임베딩 페이로드는 무거우므로 응답에서는 boolean + 차원만 노출
   const prices = filtered.map((p) => {

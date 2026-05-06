@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Repeat, Play, Square, Loader2 } from "lucide-react";
+import {
+  Repeat,
+  Play,
+  Square,
+  Loader2,
+  Pencil,
+  Plus,
+  X,
+  Check,
+  XCircle,
+} from "lucide-react";
 import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface CycleResultItem {
@@ -176,16 +186,13 @@ export function DbAutoScrape() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-        <div className="border border-slate-200 rounded p-3">
-          <div className="text-slate-500 mb-1">자재 키워드 ({status?.keywords.length ?? 0}개)</div>
-          <div className="flex flex-wrap gap-1">
-            {(status?.keywords ?? []).map((k) => (
-              <span key={k} className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded">
-                {k}
-              </span>
-            ))}
-          </div>
-        </div>
+        <KeywordsCard
+          keywords={status?.keywords ?? []}
+          inProgress={inProgress}
+          onSaved={(s) => {
+            setStatus(s);
+          }}
+        />
         <div className="border border-slate-200 rounded p-3">
           <div className="text-slate-500 mb-1">자재 사이트 ({status?.sources.length ?? 0}개)</div>
           <div className="flex flex-wrap gap-1">
@@ -321,6 +328,196 @@ export function DbAutoScrape() {
         </div>
       )}
     </section>
+  );
+}
+
+function KeywordsCard({
+  keywords,
+  inProgress,
+  onSaved,
+}: {
+  keywords: string[];
+  inProgress: boolean;
+  onSaved: (status: SchedulerStatus) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<string[]>(keywords);
+  const [newKw, setNewKw] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function startEdit() {
+    setDraft([...keywords]);
+    setNewKw("");
+    setErr(null);
+    setEditing(true);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setNewKw("");
+    setErr(null);
+  }
+
+  function add() {
+    const k = newKw.trim();
+    if (!k) return;
+    const key = k.toLowerCase().replace(/\s+/g, " ");
+    if (draft.some((d) => d.toLowerCase().replace(/\s+/g, " ") === key)) {
+      setErr("이미 존재하는 키워드입니다.");
+      return;
+    }
+    setDraft((d) => [...d, k]);
+    setNewKw("");
+    setErr(null);
+  }
+
+  function removeAt(idx: number) {
+    setDraft((d) => d.filter((_, i) => i !== idx));
+  }
+
+  async function save() {
+    if (draft.length === 0) {
+      setErr("키워드는 최소 1개 이상이어야 합니다.");
+      return;
+    }
+    setSaving(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/scheduler", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "setKeywords", keywords: draft }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      if (data.status) onSaved(data.status);
+      setEditing(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border border-slate-200 rounded p-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-slate-500">
+          자재 키워드 ({editing ? draft.length : keywords.length}개)
+          {editing && (
+            <span className="ml-1.5 text-[11px] text-amber-600">
+              · 저장 시 다음 사이클부터 적용
+            </span>
+          )}
+        </div>
+        {!editing ? (
+          <button
+            type="button"
+            onClick={startEdit}
+            className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700"
+          >
+            <Pencil size={11} /> 편집
+          </button>
+        ) : (
+          <div className="inline-flex items-center gap-2">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 disabled:opacity-50"
+            >
+              <Check size={11} /> {saving ? "저장 중..." : "저장"}
+            </button>
+            <button
+              type="button"
+              onClick={cancel}
+              disabled={saving}
+              className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-700 disabled:opacity-50"
+            >
+              <XCircle size={11} /> 취소
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!editing ? (
+        <div className="flex flex-wrap gap-1">
+          {keywords.length === 0 ? (
+            <span className="text-slate-400 text-[11px]">키워드 없음</span>
+          ) : (
+            keywords.map((k) => (
+              <span
+                key={k}
+                className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded"
+              >
+                {k}
+              </span>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1">
+            {draft.map((k, i) => (
+              <span
+                key={`${k}-${i}`}
+                className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-800 px-2 py-0.5 rounded"
+              >
+                {k}
+                <button
+                  type="button"
+                  onClick={() => removeAt(i)}
+                  disabled={saving}
+                  className="text-blue-500 hover:text-blue-700 disabled:opacity-50"
+                  title="삭제"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+            {draft.length === 0 && (
+              <span className="text-slate-400 text-[11px]">
+                키워드를 추가하세요
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <input
+              value={newKw}
+              onChange={(e) => setNewKw(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  add();
+                }
+              }}
+              placeholder="새 키워드 입력 후 추가"
+              disabled={saving}
+              className="flex-1 border border-slate-300 rounded px-2 py-1 text-xs disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={add}
+              disabled={!newKw.trim() || saving}
+              className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs disabled:opacity-50"
+            >
+              <Plus size={11} /> 추가
+            </button>
+          </div>
+          {inProgress && (
+            <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+              현재 사이클 진행 중 — 변경된 키워드는 다음 사이클부터 적용됩니다.
+            </div>
+          )}
+          {err && (
+            <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-200 rounded px-2 py-1">
+              {err}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

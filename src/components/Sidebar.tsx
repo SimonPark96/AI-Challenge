@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, FileSearch, Database } from "lucide-react";
-import { useEffect, useState } from "react";
 
 interface MenuItem {
   href: string;
@@ -17,32 +17,27 @@ const MENU: MenuItem[] = [
   { href: "/db", label: "DB 관리", icon: Database },
 ];
 
+const CURRENT_USER = {
+  name: "박현우",
+  role: "포스코현장 건축팀",
+  initials: "박",
+};
+
 export function Sidebar() {
   const pathname = usePathname();
-  const [stats, setStats] = useState<{
-    internal: number;
-    external: number;
-    summaries: number;
-  } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    fetch("/api/sidebar-stats")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (active && d) setStats(d);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
 
   return (
-    <aside className="w-60 shrink-0 bg-slate-800 text-slate-100 flex flex-col">
-      <div className="px-5 py-5 border-b border-slate-700/60">
-        <div className="text-xs text-slate-400 leading-tight">POSCO E&C</div>
-        <div className="text-base font-semibold text-white mt-0.5">
+    <aside className="w-72 shrink-0 bg-[#001E62] text-slate-100 flex flex-col">
+      <div className="px-5 py-5 border-b border-white/10">
+        <Image
+          src="/posco-enc-logo.png"
+          alt="포스코이앤씨"
+          width={3993}
+          height={1583}
+          priority
+          className="h-7 w-auto brightness-0 invert opacity-95"
+        />
+        <div className="text-base font-semibold text-white mt-2 leading-tight truncate">
           AI 자동 단가 검토
         </div>
       </div>
@@ -58,8 +53,8 @@ export function Sidebar() {
               href={m.href}
               className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors ${
                 active
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-700/60 hover:text-white"
+                  ? "bg-white text-[#001E62] font-semibold shadow-sm"
+                  : "text-slate-200 hover:bg-white/10 hover:text-white"
               }`}
             >
               <Icon size={16} />
@@ -69,28 +64,26 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-3 border-t border-slate-700/60 text-xs">
-        <div className="flex items-center gap-1.5 text-emerald-400 mb-2">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span className="text-slate-300">DB 현황</span>
-        </div>
-        <div className="space-y-1 pl-3 text-slate-400">
-          <div className="flex justify-between">
-            <span>내부 실적</span>
-            <span>{stats?.internal ?? 0}</span>
+      <div className="px-4 py-3 border-t border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-sm font-bold text-white shadow-sm ring-2 ring-white/20">
+              {CURRENT_USER.initials}
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#001E62]" />
           </div>
-          <div className="flex justify-between">
-            <span>외부 물가 (자재)</span>
-            <span>{stats?.external ?? 0}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>외부 단가 (합계)</span>
-            <span>{stats?.summaries ?? 0}</span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-white truncate">
+              {CURRENT_USER.name}
+            </div>
+            <div className="text-[11px] text-slate-300 truncate">
+              {CURRENT_USER.role}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 py-2 border-t border-slate-700/60 text-[11px] text-slate-500">
+      <div className="px-4 py-2 border-t border-white/10 text-[11px] text-slate-400">
         AI 자동 단가 검토 v1.0
       </div>
     </aside>

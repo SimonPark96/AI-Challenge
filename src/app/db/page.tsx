@@ -17,7 +17,8 @@ export default function DbPage() {
       <header>
         <h1 className="text-2xl font-bold text-slate-800">DB 관리</h1>
         <p className="text-sm text-slate-500 mt-1">
-          데이터를 도메인 단위로 묶어 표시 — 각 도메인은 “수집(스크래핑/임포트)” 과 “조회(검색)” 탭으로 분리됩니다.
+          데이터를 도메인 단위로 묶어 표시 — 각 도메인은 “수집(스크래핑/임포트)”
+          과 “조회(검색)” 탭으로 분리됩니다.
         </p>
       </header>
 
@@ -74,7 +75,7 @@ export default function DbPage() {
       />
 
       <DomainGroup
-        title="일괄 단가"
+        title="사내 DB 단가"
         description="엑셀/이미지 일괄 등록"
         icon={<FileSpreadsheet size={20} />}
         accent="emerald"

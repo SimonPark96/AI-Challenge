@@ -38,7 +38,7 @@ const TAB_LABELS: Record<Tab, string> = {
 
 const TAB_SUBTITLES: Record<Tab, string> = {
   analysis: "이 견적의 매칭 결과 Q&A",
-  search: "DB 의 자재·노임·일괄 단가 검색",
+  search: "DB 의 자재·노임·사내 DB 단가 검색",
 };
 
 export function AiChatBot({ mode, quotationId }: AiChatBotProps) {
@@ -144,10 +144,7 @@ export function AiChatBot({ mode, quotationId }: AiChatBotProps) {
           });
         }
       } catch (err) {
-        if (
-          myId === reqIdRef.current &&
-          (err as Error).name !== "AbortError"
-        ) {
+        if (myId === reqIdRef.current && (err as Error).name !== "AbortError") {
           setError(err instanceof Error ? err.message : String(err));
         }
       } finally {
@@ -317,7 +314,9 @@ export function AiChatBot({ mode, quotationId }: AiChatBotProps) {
           return (
             <div
               key={i}
-              className={`flex gap-2 ${isUser ? "justify-end" : "justify-start"}`}
+              className={`flex gap-2 ${
+                isUser ? "justify-end" : "justify-start"
+              }`}
             >
               {!isUser && (
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm">
@@ -358,9 +357,7 @@ export function AiChatBot({ mode, quotationId }: AiChatBotProps) {
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={
-              streaming ? "답변 생성 중…" : "질문을 입력하세요"
-            }
+            placeholder={streaming ? "답변 생성 중…" : "질문을 입력하세요"}
             disabled={streaming}
             rows={1}
             className="flex-1 min-w-0 resize-none bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed py-2 leading-snug min-h-9 max-h-32"

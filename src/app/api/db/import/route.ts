@@ -14,16 +14,23 @@ export const maxDuration = 300;
  *
  * 결과는 PriceSummary 에 저장됨 (PriceHistory 와 별개).
  * 협력사 일위대가의 "합계" 와 비교하기 위한, 명칭/규격 단위의 단가합계 데이터.
+ *
+ * 컬럼은 모두 행 단위 — 같은 시트 안에서 행마다 프로젝트명/사업본부/계약일자가
+ * 다를 수 있음.
  */
 
 const HEADER_KEYS = {
-  name: ["명칭", "공종명", "품명", "공사명", "name"],
+  name: ["명칭", "공종명", "품명", "name"],
   spec: ["규격", "사양", "spec"],
   unit: ["단위", "unit"],
   totalCost: ["합계", "총합", "총액", "총원가", "total"],
   materialCost: ["재료비", "재료", "material"],
   laborCost: ["노무비", "노무", "labor"],
   expenseCost: ["경비", "expense"],
+  projectName: ["프로젝트명", "공사명", "사업명", "현장명"],
+  businessDivision: ["사업본부", "본부명", "사업부"],
+  firstContractDate: ["최초계약일", "당초계약일", "최초계약", "당초계약"],
+  lastContractDate: ["최종계약일", "변경계약일", "최종계약", "변경계약"],
 };
 
 const SHEET_EXT = new Set(["xlsx", "xls", "csv"]);
@@ -52,6 +59,32 @@ function parseAmount(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * 한국식 날짜 문자열 파싱.
+ * 지원: "2024.01.15", "2024-01-15", "2024/01/15", "2024년 1월 15일",
+ *       "2024.1.5", ISO "2024-01-15T..." 등.
+ */
+function parseKoreanDate(input: string | null | undefined): Date | null {
+  if (!input) return null;
+  const s = String(input).trim();
+  if (!s) return null;
+
+  // YYYY{.|-|/|년}MM{.|-|/|월}DD
+  const m = s.match(/(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/);
+  if (m) {
+    const [, y, mo, d] = m;
+    const iso = `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}T00:00:00Z`;
+    const date = new Date(iso);
+    if (Number.isFinite(date.getTime())) return date;
+  }
+
+  // 폴백: 표준 Date.parse (ISO 등)
+  const ts = Date.parse(s);
+  if (Number.isFinite(ts)) return new Date(ts);
+
+  return null;
+}
+
 interface ParsedRow {
   name: string;
   spec: string | null;
@@ -60,6 +93,10 @@ interface ParsedRow {
   materialCost: number | null;
   laborCost: number | null;
   expenseCost: number | null;
+  projectName: string | null;
+  businessDivision: string | null;
+  firstContractDate: Date | null;
+  lastContractDate: Date | null;
 }
 
 interface ParseResult {
@@ -114,6 +151,19 @@ async function parseExcel(file: File): Promise<ParseResult> {
     materialCost: findColumnIndex(headers, HEADER_KEYS.materialCost),
     laborCost: findColumnIndex(headers, HEADER_KEYS.laborCost),
     expenseCost: findColumnIndex(headers, HEADER_KEYS.expenseCost),
+    projectName: findColumnIndex(headers, HEADER_KEYS.projectName),
+    businessDivision: findColumnIndex(
+      headers,
+      HEADER_KEYS.businessDivision
+    ),
+    firstContractDate: findColumnIndex(
+      headers,
+      HEADER_KEYS.firstContractDate
+    ),
+    lastContractDate: findColumnIndex(
+      headers,
+      HEADER_KEYS.lastContractDate
+    ),
   };
   if (idx.name < 0) throw new Error("명칭 컬럼을 찾지 못했습니다.");
 
@@ -134,6 +184,20 @@ async function parseExcel(file: File): Promise<ParseResult> {
         idx.laborCost >= 0 ? parseAmount(row[idx.laborCost]) : null,
       expenseCost:
         idx.expenseCost >= 0 ? parseAmount(row[idx.expenseCost]) : null,
+      projectName:
+        idx.projectName >= 0 ? row[idx.projectName] || null : null,
+      businessDivision:
+        idx.businessDivision >= 0
+          ? row[idx.businessDivision] || null
+          : null,
+      firstContractDate:
+        idx.firstContractDate >= 0
+          ? parseKoreanDate(row[idx.firstContractDate])
+          : null,
+      lastContractDate:
+        idx.lastContractDate >= 0
+          ? parseKoreanDate(row[idx.lastContractDate])
+          : null,
     });
   }
   return { via: "spreadsheet", sheetName, headerRow: headerIdx, headers, rows };
@@ -143,21 +207,27 @@ const IMAGE_SYSTEM_PROMPT = `당신은 건축 자재 단가표 / 일위대가 �
 업로드된 단가 자료 이미지에서 "명칭 단위" 의 합계 행을 추출해 JSON 으로 반환하세요.
 (개별 자재 단가가 아니라, 일위대가나 공종 단위의 합계 데이터)
 
-각 행 필드:
-- name: 명칭 / 공종명 / 공사명 (필수, 비어있으면 행 제외)
+각 행 필드 — 모두 행 단위 컬럼입니다 (행마다 값이 다를 수 있음):
+- name: 명칭 / 공종명 (필수, 비어있으면 행 제외)
 - spec: 규격 / 사양 (없으면 null)
 - unit: 단위 (예: "EA", "M", "M2", "식"; 없으면 null)
 - totalCost: 합계 단가 (원, number; 콤마/원/₩ 같은 기호 제거)
 - materialCost: 재료비 (원, number; 없으면 null)
 - laborCost: 노무비 (원, number; 없으면 null)
 - expenseCost: 경비 (원, number; 없으면 null)
+- projectName: 프로젝트명 / 공사명 / 사업명 / 현장명 (없으면 null)
+- businessDivision: 사업본부 / 본부명 / 사업부 (없으면 null)
+- firstContractDate: 최초계약일자 / 당초계약일자 (YYYY-MM-DD 형식 문자열, 없으면 null)
+- lastContractDate: 최종계약일자 / 변경계약일자 (YYYY-MM-DD 형식 문자열, 없으면 null)
 
 규칙:
 - 헤더 행, 빈 행, 부가세/총계 행은 제외
 - 분류명 / 카테고리(예: "1군 - 강관") 행은 제외
 - 같은 명칭의 소계와 합계가 둘 다 보이면 "합계" 우선
 - 숫자가 흐릿하면 해당 필드만 null 로 두고 name 은 살림
-- THK 표기는 두께 (예: THK10 = 두께 10mm)`;
+- THK 표기는 두께 (예: THK10 = 두께 10mm)
+- 프로젝트명/사업본부/계약일자가 표 밖 헤더 영역에만 있고 행마다 따로 표기되지 않으면
+  모든 행에 같은 값을 채워 반환`;
 
 const IMAGE_SCHEMA = {
   type: "object",
@@ -174,6 +244,10 @@ const IMAGE_SCHEMA = {
           materialCost: { type: ["number", "null"] },
           laborCost: { type: ["number", "null"] },
           expenseCost: { type: ["number", "null"] },
+          projectName: { type: ["string", "null"] },
+          businessDivision: { type: ["string", "null"] },
+          firstContractDate: { type: ["string", "null"] },
+          lastContractDate: { type: ["string", "null"] },
         },
         required: [
           "name",
@@ -183,6 +257,10 @@ const IMAGE_SCHEMA = {
           "materialCost",
           "laborCost",
           "expenseCost",
+          "projectName",
+          "businessDivision",
+          "firstContractDate",
+          "lastContractDate",
         ],
         additionalProperties: false,
       },
@@ -261,7 +339,21 @@ async function parseImage(file: File): Promise<ParseResult> {
 
   const content = completion.choices[0]?.message?.content;
   if (!content) throw new Error("OpenAI 응답이 비어있음");
-  const parsed = JSON.parse(content) as { rows: ParsedRow[] };
+  const parsed = JSON.parse(content) as {
+    rows: Array<{
+      name: string;
+      spec?: string | null;
+      unit?: string | null;
+      totalCost?: number | null;
+      materialCost?: number | null;
+      laborCost?: number | null;
+      expenseCost?: number | null;
+      projectName?: string | null;
+      businessDivision?: string | null;
+      firstContractDate?: string | null;
+      lastContractDate?: string | null;
+    }>;
+  };
 
   const rows: ParsedRow[] = (parsed.rows ?? [])
     .map((r) => ({
@@ -272,6 +364,10 @@ async function parseImage(file: File): Promise<ParseResult> {
       materialCost: numOrNull(r.materialCost),
       laborCost: numOrNull(r.laborCost),
       expenseCost: numOrNull(r.expenseCost),
+      projectName: strOrNull(r.projectName),
+      businessDivision: strOrNull(r.businessDivision),
+      firstContractDate: parseKoreanDate(r.firstContractDate),
+      lastContractDate: parseKoreanDate(r.lastContractDate),
     }))
     .filter((r) => r.name !== "");
 
@@ -287,6 +383,10 @@ async function parseImage(file: File): Promise<ParseResult> {
       "materialCost",
       "laborCost",
       "expenseCost",
+      "projectName",
+      "businessDivision",
+      "firstContractDate",
+      "lastContractDate",
     ],
     rows,
   };
@@ -376,6 +476,10 @@ export async function POST(req: Request) {
           expenseCost: r.expenseCost,
           sourceFile,
           sourceVia: parsed.via,
+          projectName: r.projectName,
+          businessDivision: r.businessDivision,
+          firstContractDate: r.firstContractDate,
+          lastContractDate: r.lastContractDate,
           rawRow: r as unknown as Prisma.InputJsonValue,
           fetchedAt,
         },

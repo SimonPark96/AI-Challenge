@@ -63,6 +63,22 @@ function fmt(n: number | null | undefined): string {
   return n != null ? n.toLocaleString() : "-";
 }
 
+/**
+ * 시장단가가 협력사 단가 대비 얼마나 차이나는지 (협력사 = 기준).
+ * dev > 0 → 시장이 협력사보다 비쌈 (협력사가 시장 대비 저렴)
+ * dev < 0 → 시장이 협력사보다 저렴 (협력사가 시장 대비 비쌈)
+ *
+ * 저장된 it.deviationPct 는 이전 컨벤션((unit-market)/market) 기준이라 표시에 사용 X.
+ * 항상 raw unitPrice/marketPrice 로 즉석 계산.
+ */
+function computeDev(
+  unit: number | null,
+  market: number | null
+): number | null {
+  if (unit == null || market == null || unit === 0) return null;
+  return ((market - unit) / unit) * 100;
+}
+
 function devColor(dev: number | null): string {
   if (dev == null) return "text-slate-400";
   if (dev > 10) return "text-rose-600";
@@ -112,9 +128,9 @@ function buildPayload(draft: Draft): Record<string, unknown> {
     quantity: parseNumOrNull(draft.quantity),
     unitPrice: parseNumOrNull(draft.unitPrice),
     marketPrice: parseNumOrNull(draft.marketPrice),
-    marketRegion:
-      draft.marketRegion.trim() === "" ? null : draft.marketRegion,
-    matchedConfidence: conf == null ? null : Math.max(0, Math.min(100, conf)) / 100,
+    marketRegion: draft.marketRegion.trim() === "" ? null : draft.marketRegion,
+    matchedConfidence:
+      conf == null ? null : Math.max(0, Math.min(100, conf)) / 100,
   };
 }
 
@@ -135,12 +151,14 @@ export function ComparisonTable({
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   const matchedCount = items.filter((it) => it.matchedPrice != null).length;
-  const overCount = items.filter(
-    (it) => it.deviationPct != null && it.deviationPct > 10
-  ).length;
-  const underCount = items.filter(
-    (it) => it.deviationPct != null && it.deviationPct < -10
-  ).length;
+  const overCount = items.filter((it) => {
+    const d = computeDev(it.unitPrice, it.marketPrice);
+    return d != null && d > 10;
+  }).length;
+  const underCount = items.filter((it) => {
+    const d = computeDev(it.unitPrice, it.marketPrice);
+    return d != null && d < -10;
+  }).length;
 
   // 어떤 row 들이 dirty 한지 — 변경 안 된 row 는 PATCH 안 보냄
   const dirtyIds = useMemo(() => {
@@ -213,7 +231,9 @@ export function ComparisonTable({
       if (failed.length > 0) {
         const msg = (failed[0] as PromiseRejectedResult).reason;
         throw new Error(
-          `${failed.length}/${results.length} 행 저장 실패: ${msg instanceof Error ? msg.message : String(msg)}`
+          `${failed.length}/${results.length} 행 저장 실패: ${
+            msg instanceof Error ? msg.message : String(msg)
+          }`
         );
       }
       setSavedAt(Date.now());
@@ -231,10 +251,10 @@ export function ComparisonTable({
       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-base font-semibold text-slate-800">
-            단가 비교 결과
+            세부 단가 비교 결과
           </h2>
           <div className="text-xs text-slate-500 mt-1">
-            총 {items.length}건 · 매칭 {matchedCount}건 · 시장 대비 비쌈{" "}
+            총 {items.length}건 · 매칭 {matchedCount}건 · 협력사보다 비쌈{" "}
             <span className="text-rose-600 font-medium">{overCount}</span> ·
             저렴 <span className="text-blue-600 font-medium">{underCount}</span>
           </div>
@@ -377,30 +397,30 @@ export function ComparisonTable({
                     )}
                   </td>
 
-                  {/* 시장 단가 — 신뢰도 30% 이하면 표시 생략 */}
+                  {/* 시장 단가 — 매칭이 없으면 marketPrice 가 null 이라 자동 "-" */}
                   <td className="px-3 py-2.5 text-right font-mono text-slate-700">
                     {editing ? (
                       <NumberInput
                         value={d.marketPrice}
                         onChange={(v) => updateDraft(it.id, { marketPrice: v })}
                       />
-                    ) : (it.matchedConfidence ?? 0) > 0.4 ? (
-                      fmt(it.marketPrice)
                     ) : (
-                      <span className="text-slate-400">-</span>
+                      fmt(it.marketPrice)
                     )}
                   </td>
 
-                  {/* 편차 — 편집 중에는 derived preview */}
+                  {/* 편차 — 시장이 협력사 단가 대비 얼마나 비싸냐(+) / 싸냐(-). 편집 중엔 draft 기반 preview */}
                   <td
                     className={`px-3 py-2.5 text-right font-mono ${devColor(
-                      editing ? previewDeviation(d) : it.deviationPct
+                      editing
+                        ? previewDeviation(d)
+                        : computeDev(it.unitPrice, it.marketPrice)
                     )}`}
                   >
                     {(() => {
                       const dev = editing
                         ? previewDeviation(d)
-                        : it.deviationPct;
+                        : computeDev(it.unitPrice, it.marketPrice);
                       return dev != null
                         ? `${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
                         : "-";
@@ -410,9 +430,7 @@ export function ComparisonTable({
                   {/* 신뢰도 */}
                   <td
                     className={`px-3 py-2.5 text-right text-xs ${confColor(
-                      editing
-                        ? draftConfFraction(d)
-                        : it.matchedConfidence
+                      editing ? draftConfFraction(d) : it.matchedConfidence
                     )}`}
                   >
                     {editing ? (
@@ -451,10 +469,8 @@ export function ComparisonTable({
                   </td>
 
                   {/* 매칭 자재/직종 — itemName / spec / 지역(편집 가능) */}
-                  {/* 신뢰도 30% 이하면 단가+출처를 매칭자재 셀에 함께 표시 */}
                   <td className="px-3 py-2.5 text-xs text-slate-500">
                     {(() => {
-                      const lowConf = !editing && (it.matchedConfidence ?? 0) <= 0.3;
                       if (it.matchedSource === "wage" && it.matchedWage) {
                         return (
                           <>
@@ -471,14 +487,6 @@ export function ComparisonTable({
                                 ? ` · ${it.matchedWage.basis}`
                                 : ""}
                             </div>
-                            {lowConf && it.marketPrice != null && (
-                              <div className="mt-0.5 text-[11px] text-slate-500">
-                                <span className="font-mono">{fmt(it.marketPrice)}</span>
-                                <span className="ml-1 text-slate-400 uppercase">
-                                  {wageSourceLabel(it.matchedWage.source)}
-                                </span>
-                              </div>
-                            )}
                           </>
                         );
                       } else if (it.matchedPrice) {
@@ -506,20 +514,14 @@ export function ComparisonTable({
                                 ""
                               )}
                             </div>
-                            {lowConf && it.marketPrice != null && (
-                              <div className="mt-0.5 text-[11px] text-slate-500">
-                                <span className="font-mono">{fmt(it.marketPrice)}</span>
-                                <span className="ml-1 text-slate-400 uppercase">
-                                  {it.matchedPrice.source}
-                                </span>
-                              </div>
-                            )}
                           </>
                         );
                       } else {
                         return (
                           <>
-                            <span className="text-slate-400">매칭 없음</span>
+                            <span className="text-slate-400">
+                              매칭 없음(직접 입력)
+                            </span>
                             {editing && (
                               <Input
                                 value={d.marketRegion}
@@ -558,8 +560,7 @@ export function ComparisonTable({
 function previewDeviation(d: Draft): number | null {
   const u = parseNumOrNull(d.unitPrice);
   const m = parseNumOrNull(d.marketPrice);
-  if (u == null || m == null || m === 0) return null;
-  return ((u - m) / m) * 100;
+  return computeDev(u, m);
 }
 
 function draftConfFraction(d: Draft): number | null {

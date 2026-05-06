@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const SYSTEM_PROMPT = `당신은 건축 자재 단가 분석 전문가입니다.
-주어진 견적의 (1) 모든 라인 아이템과 시장 단가 매칭 결과, (2) 협력사 합계 vs
-외부 단가 자료(PriceSummary) 합계 vs 세부 항목별 시장단가 합계 — 세 가지를
+주어진 견적의 (1) 모든 라인 아이템과 시장 단가 매칭 결과, (2) 협력사 견적 vs
+사내 DB 단가(PriceSummary) vs AI 매칭 단가 합계 — 세 가지를
 종합 평가해 한국어로 6~8문장의 보고서 톤 코멘트를 작성하세요.
 
 작성 가이드:
@@ -15,11 +15,11 @@ const SYSTEM_PROMPT = `당신은 건축 자재 단가 분석 전문가입니다.
 - 시장 대비 비싼 항목(편차 +10% 이상) / 저렴한 항목(-10% 이하) 을 구체적으로 지목
 - 매칭 신뢰도 0.5 미만 또는 매칭 실패 항목이 있으면 검증 필요 명시
 - 외부 단가 자료가 선택되어 있으면:
-  · 협력사 합계 vs 매칭 자료 합계의 편차를 평가
+  · 협력사 견적 vs 사내 DB 단가의 편차를 평가
   · 재료비/노무비/경비 항목별 편차도 한 줄로 짚어주기
-- 세부 항목별 시장단가 합계가 산출되면:
-  · 협력사 합계 vs 세부 합계의 편차를 평가
-  · 매칭 자료 합계와 세부 합계가 서로 어긋나면 어떤 쪽이 더 신뢰할 만한지 판단
+- AI 매칭 단가 합계가 산출되면:
+  · 협력사 견적 vs AI 매칭 단가 합계의 편차를 평가
+  · 사내 DB 단가와 AI 매칭 단가 합계가 서로 어긋나면 어떤 쪽이 더 신뢰할 만한지 판단
 - 두 비교가 모두 가능하면:
   · **적정 합계 범위** 를 두 합계의 보수적/중간값을 활용해 권장
     (예: "두 비교를 종합한 적정 합계 범위는 약 4,750,000원 ~ 5,250,000원 으로
@@ -131,9 +131,7 @@ export async function POST(
     typeof meta?.projectName === "string" && meta.projectName
       ? `공사명: ${meta.projectName}`
       : null,
-    typeof meta?.spec === "string" && meta.spec
-      ? `규격: ${meta.spec}`
-      : null,
+    typeof meta?.spec === "string" && meta.spec ? `규격: ${meta.spec}` : null,
     typeof meta?.workType === "string" && meta.workType
       ? `공종: ${meta.workType}`
       : null,
@@ -190,7 +188,7 @@ export async function POST(
     `시장 대비 비쌈 ${overCount}건 / 저렴 ${underCount}건`,
   ].join(" · ");
 
-  // 세부 항목별 시장단가 합계 (매칭된 행만)
+  // AI 매칭 단가 합계 (매칭된 행만)
   const itemMatched = quotation.items.filter((it) => it.marketPrice != null);
   const itemMarketTotal =
     itemMatched.length > 0
@@ -205,12 +203,18 @@ export async function POST(
   const totalBlock: string[] = [];
   if (summary) {
     totalBlock.push("");
-    totalBlock.push("[단가 합계 매칭 자료]");
+    totalBlock.push("[사내 DB 단가]");
     totalBlock.push(
-      `- 명칭: ${summary.name}${summary.spec ? ` / ${summary.spec}` : ""}${summary.unit ? ` / ${summary.unit}` : ""}`
+      `- 명칭: ${summary.name}${summary.spec ? ` / ${summary.spec}` : ""}${
+        summary.unit ? ` / ${summary.unit}` : ""
+      }`
     );
     totalBlock.push(
-      `- 매칭 자료 합계: ${summary.totalCost != null ? summary.totalCost.toLocaleString() + "원" : "N/A"}` +
+      `- 사내 DB 단가 합계: ${
+        summary.totalCost != null
+          ? summary.totalCost.toLocaleString() + "원"
+          : "N/A"
+      }` +
         (summary.materialCost != null
           ? ` (재료비 ${summary.materialCost.toLocaleString()}원`
           : "") +
@@ -220,11 +224,13 @@ export async function POST(
         (summary.expenseCost != null
           ? `, 경비 ${summary.expenseCost.toLocaleString()}원)`
           : summary.materialCost != null
-            ? ")"
-            : "")
+          ? ")"
+          : "")
     );
     totalBlock.push(
-      `- 협력사 합계: ${partnerTotal != null ? partnerTotal.toLocaleString() + "원" : "N/A"}` +
+      `- 협력사 견적: ${
+        partnerTotal != null ? partnerTotal.toLocaleString() + "원" : "N/A"
+      }` +
         (partnerMaterial != null
           ? ` (재료비 ${partnerMaterial.toLocaleString()}원`
           : "") +
@@ -234,8 +240,8 @@ export async function POST(
         (partnerExpense != null
           ? `, 경비 ${partnerExpense.toLocaleString()}원)`
           : partnerMaterial != null
-            ? ")"
-            : "")
+          ? ")"
+          : "")
     );
     if (
       partnerTotal != null &&
@@ -245,31 +251,33 @@ export async function POST(
       const dev =
         ((partnerTotal - summary.totalCost) / summary.totalCost) * 100;
       totalBlock.push(
-        `- 협력사 vs 매칭자료 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
+        `- 협력사 견적 vs 사내 DB 단가 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
       );
     }
   } else {
     totalBlock.push("");
     totalBlock.push(
-      "[단가 합계 매칭 자료] 선택되지 않음 — 매칭 자료 합계 평가는 생략."
+      "[사내 DB 단가] 선택되지 않음 — 사내 DB 단가 평가는 생략."
     );
   }
 
   totalBlock.push("");
   if (itemMarketTotal != null) {
-    totalBlock.push("[세부 항목별 시장단가 합계]");
+    totalBlock.push("[AI 매칭 단가 합계]");
     totalBlock.push(
-      `- 매칭된 ${itemMatched.length}/${quotation.items.length}건의 시장단가 × 수량 합산: ${itemMarketTotal.toLocaleString()}원`
+      `- 매칭된 ${itemMatched.length}/${
+        quotation.items.length
+      }건의 시장단가 × 수량 합산: ${itemMarketTotal.toLocaleString()}원`
     );
     if (partnerTotal != null && itemMarketTotal !== 0) {
       const dev = ((partnerTotal - itemMarketTotal) / itemMarketTotal) * 100;
       totalBlock.push(
-        `- 협력사 vs 세부합계 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
+        `- 협력사 견적 vs AI 매칭 단가 합계 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}%`
       );
     }
   } else {
     totalBlock.push(
-      "[세부 항목별 시장단가 합계] 매칭된 항목이 없어 산출 불가."
+      "[AI 매칭 단가 합계] 매칭된 항목이 없어 산출 불가."
     );
   }
 

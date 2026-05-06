@@ -56,10 +56,11 @@ export function DbExcelImport() {
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <FileSpreadsheet size={18} className="text-blue-500" />
-        외부 단가 자료 일괄 등록
+        사내 DB 단가 등록
         <InfoTooltip width="w-96">
           엑셀(.xlsx/.xls/.csv) 또는 단가 자료 이미지(.png/.jpg/.webp) 를
-          업로드하면 자동으로 <b>명칭 / 규격 / 단위 / 합계(재료비·노무비·경비)</b>
+          업로드하면 자동으로{" "}
+          <b>명칭 / 규격 / 단위 / 합계(재료비·노무비·경비)</b>
           행을 감지해 일괄 단가 DB 에 등록하고 임베딩까지 생성합니다. 이
           데이터는 단가 검토 요청 페이지의 <b>합계 비교</b> 단계에서 검색·선택해
           사용됩니다. (자재 단가 DB 와는 별도)
@@ -100,14 +101,12 @@ export function DbExcelImport() {
                 <ImageIcon size={20} className="text-emerald-500" />
               </div>
             ) : (
-              <FileSpreadsheet
-                className="text-emerald-500"
-                size={28}
-              />
+              <FileSpreadsheet className="text-emerald-500" size={28} />
             )}
             <div className="text-sm text-slate-800">{file.name}</div>
             <div className="text-xs text-slate-500">
-              {(file.size / 1024).toFixed(1)} KB · {isImage ? "이미지" : "스프레드시트"}
+              {(file.size / 1024).toFixed(1)} KB ·{" "}
+              {isImage ? "이미지" : "스프레드시트"}
             </div>
           </div>
         ) : (

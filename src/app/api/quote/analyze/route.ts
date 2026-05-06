@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { matchToMarketPrice } from "@/lib/quote/match";
+import {
+  EMPTY_MATCH,
+  isMatchExcluded,
+  matchToMarketPrice,
+} from "@/lib/quote/match";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,9 +82,12 @@ export async function POST(req: Request) {
 
   try {
     const matches = await Promise.all(
-      validItems.map((it) =>
-        matchToMarketPrice(it.itemName.trim(), strOrNull(it.spec))
-      )
+      validItems.map((it) => {
+        const name = it.itemName.trim();
+        // "장비비" 등은 매칭 대상 아님 — 빈 결과로 즉시 반환.
+        if (isMatchExcluded(name)) return Promise.resolve(EMPTY_MATCH);
+        return matchToMarketPrice(name, strOrNull(it.spec));
+      })
     );
 
     const itemsData: Prisma.QuotationItemUncheckedCreateWithoutQuotationInput[] =

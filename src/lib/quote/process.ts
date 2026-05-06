@@ -1,6 +1,6 @@
 import { prisma } from "../prisma";
 import { parseQuoteWithOpenAI } from "../openai/parse-quote";
-import { matchToMarketPrice } from "./match";
+import { EMPTY_MATCH, isMatchExcluded, matchToMarketPrice } from "./match";
 import type { Prisma } from "@/generated/prisma/client";
 
 export interface ProcessQuoteResult {
@@ -37,7 +37,9 @@ export async function processQuote(
 
     const itemsData = await Promise.all(
       parsed.items.map(async (item, i) => {
-        const match = await matchToMarketPrice(item.itemName, item.spec);
+        const match = isMatchExcluded(item.itemName)
+          ? EMPTY_MATCH
+          : await matchToMarketPrice(item.itemName, item.spec);
         const deviationPct =
           item.unitPrice !== null &&
           match.marketPrice !== null &&

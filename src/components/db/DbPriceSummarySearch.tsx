@@ -14,6 +14,10 @@ interface SummaryRow {
   expenseCost: number | null;
   sourceFile: string | null;
   sourceVia: string | null;
+  projectName: string | null;
+  businessDivision: string | null;
+  firstContractDate: string | null;
+  lastContractDate: string | null;
   fetchedAt: string;
   hasEmbedding: boolean;
   embeddingDim: number;
@@ -87,7 +91,7 @@ export function DbPriceSummarySearch() {
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <Wallet size={18} className="text-blue-500" />
-        일괄 단가 검색
+        사내 DB 단가 검색
         <span className="text-[11px] font-normal text-slate-400">
           (엑셀/이미지 일괄 등록 — 명칭·규격 합계)
         </span>
@@ -118,14 +122,12 @@ export function DbPriceSummarySearch() {
           <thead className="bg-slate-50 sticky top-0">
             <tr>
               <th className="text-left p-2 font-medium text-slate-600">id</th>
+              <th className="text-left p-2 font-medium text-slate-600">명칭</th>
+              <th className="text-left p-2 font-medium text-slate-600">규격</th>
+              <th className="text-left p-2 font-medium text-slate-600">단위</th>
+              <th className="text-left p-2 font-medium text-slate-600">본부</th>
               <th className="text-left p-2 font-medium text-slate-600">
-                명칭
-              </th>
-              <th className="text-left p-2 font-medium text-slate-600">
-                규격
-              </th>
-              <th className="text-left p-2 font-medium text-slate-600">
-                단위
+                프로젝트명
               </th>
               <th className="text-right p-2 font-medium text-slate-600">
                 합계
@@ -139,9 +141,13 @@ export function DbPriceSummarySearch() {
               <th className="text-right p-2 font-medium text-slate-600">
                 경비
               </th>
-              <th className="text-left p-2 font-medium text-slate-600">
-                소스
+              <th className="text-left p-2 font-medium text-slate-600 w-24">
+                최초계약
               </th>
+              <th className="text-left p-2 font-medium text-slate-600 w-24">
+                최종계약
+              </th>
+              <th className="text-left p-2 font-medium text-slate-600">소스</th>
               <th className="text-left p-2 font-medium text-slate-600 w-24">
                 수집일
               </th>
@@ -163,6 +169,18 @@ export function DbPriceSummarySearch() {
                 <td className="p-2 text-slate-800">{r.name}</td>
                 <td className="p-2 text-slate-600">{r.spec ?? "-"}</td>
                 <td className="p-2 text-slate-600">{r.unit ?? "-"}</td>
+                <td
+                  className="p-2 text-slate-600 truncate max-w-[120px]"
+                  title={r.businessDivision ?? ""}
+                >
+                  {r.businessDivision ?? "-"}
+                </td>
+                <td
+                  className="p-2 text-slate-600 truncate max-w-[160px]"
+                  title={r.projectName ?? ""}
+                >
+                  {r.projectName ?? "-"}
+                </td>
                 <td className="p-2 text-right font-mono font-semibold text-slate-800">
                   {fmt(r.totalCost)}
                 </td>
@@ -174,6 +192,12 @@ export function DbPriceSummarySearch() {
                 </td>
                 <td className="p-2 text-right font-mono text-slate-600">
                   {fmt(r.expenseCost)}
+                </td>
+                <td className="p-2 text-xs font-mono text-slate-600">
+                  {ymd(r.firstContractDate)}
+                </td>
+                <td className="p-2 text-xs font-mono text-slate-600">
+                  {ymd(r.lastContractDate)}
                 </td>
                 <td className="p-2 text-xs text-slate-500">
                   <div className="truncate max-w-[180px]">
@@ -208,20 +232,14 @@ export function DbPriceSummarySearch() {
             ))}
             {rows.length === 0 && count !== null && (
               <tr>
-                <td
-                  colSpan={12}
-                  className="p-4 text-center text-slate-400"
-                >
+                <td colSpan={16} className="p-4 text-center text-slate-400">
                   결과 없음
                 </td>
               </tr>
             )}
             {count === null && (
               <tr>
-                <td
-                  colSpan={12}
-                  className="p-4 text-center text-slate-400"
-                >
+                <td colSpan={16} className="p-4 text-center text-slate-400">
                   조회 버튼을 눌러주세요 (검색어 비우면 전체 표시)
                 </td>
               </tr>

@@ -38,7 +38,7 @@ export function QuoteUpload() {
       onDrop={onDrop}
       onDragOver={(e) => e.preventDefault()}
       onClick={() => inputRef.current?.click()}
-      className={`relative rounded-lg border-2 border-dashed transition cursor-pointer min-h-[140px] flex flex-col items-center justify-center text-center px-6 py-8 ${
+      className={`relative rounded-lg border-2 border-dashed transition cursor-pointer min-h-[84px] flex flex-col items-center justify-center text-center px-4 py-3 ${
         isParsing
           ? "border-blue-300 bg-blue-50"
           : file
@@ -50,26 +50,26 @@ export function QuoteUpload() {
 
       {!file && (
         <>
-          <Upload className="text-slate-400 mb-3" size={36} />
+          <Upload className="text-slate-400 mb-1.5" size={22} />
           <div className="text-sm text-slate-600">클릭 또는 파일을 드래그하여 업로드</div>
-          <div className="text-xs text-slate-400 mt-2">PDF · JPG · PNG · WEBP · XLSX · XLS</div>
+          <div className="text-[11px] text-slate-400 mt-1">PDF · JPG · PNG · WEBP · XLSX · XLS</div>
         </>
       )}
 
       {file && (
         <>
-          <FileText className="text-blue-500 mb-3" size={36} />
+          <FileText className="text-blue-500 mb-1.5" size={22} />
           <div className="text-sm text-slate-800 font-medium break-all max-w-xl">{file.name}</div>
-          <div className="text-xs text-slate-500 mt-1">{(file.size / 1024).toFixed(1)} KB</div>
-          <div className="text-xs text-slate-400 mt-3">PDF · JPG · PNG · WEBP · XLSX · XLS</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">{(file.size / 1024).toFixed(1)} KB</div>
+          <div className="text-[11px] text-slate-400 mt-1">PDF · JPG · PNG · WEBP · XLSX · XLS</div>
           {isParsing && (
             <div className="absolute inset-0 bg-white/60 flex flex-col items-center justify-center text-blue-600 text-sm rounded-lg">
-              <Sparkles className="animate-pulse mb-2" size={28} />
+              <Sparkles className="animate-pulse mb-1" size={20} />
               AI 추출 중...
             </div>
           )}
           {status === "error" && errorMessage && (
-            <div className="mt-3 text-xs text-red-600 max-w-md">⚠ {errorMessage}</div>
+            <div className="mt-1.5 text-xs text-red-600 max-w-md">⚠ {errorMessage}</div>
           )}
         </>
       )}

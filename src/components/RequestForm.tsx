@@ -62,7 +62,7 @@ function inputClass(extra = "") {
 }
 
 function cellInputClass(extra = "") {
-  return `w-full border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${extra}`;
+  return `w-full border border-slate-200 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${extra}`;
 }
 
 function SectionA() {
@@ -266,7 +266,7 @@ function SectionB() {
                   } ${isDragging ? "opacity-30 saturate-50" : ""}`}
                 >
                   <td
-                    className="px-2 py-1.5 text-center cursor-grab active:cursor-grabbing select-none"
+                    className="px-2 py-1 text-center cursor-grab active:cursor-grabbing select-none"
                     draggable
                     onDragStart={handleDragStart(i)}
                     title="드래그하여 순서 변경"
@@ -276,10 +276,10 @@ function SectionB() {
                       className="text-slate-300 hover:text-slate-500 inline-block"
                     />
                   </td>
-                  <td className="px-2 py-1.5 text-xs text-slate-400 font-mono">
+                  <td className="px-2 py-1 text-xs text-slate-400 font-mono">
                     {String(i + 1).padStart(2, "0")}
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-1.5 py-1">
                     <input
                       value={row.itemName}
                       onChange={updRow(i, "itemName")}
@@ -287,7 +287,7 @@ function SectionB() {
                       className={cellInputClass()}
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-1.5 py-1">
                     <input
                       value={row.spec}
                       onChange={updRow(i, "spec")}
@@ -295,7 +295,7 @@ function SectionB() {
                       className={cellInputClass()}
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-1.5 py-1">
                     <input
                       value={row.unit}
                       onChange={updRow(i, "unit")}
@@ -303,7 +303,7 @@ function SectionB() {
                       className={cellInputClass()}
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-1.5 py-1">
                     <input
                       type="number"
                       value={row.quantity}
@@ -312,7 +312,7 @@ function SectionB() {
                       className={cellInputClass("text-right")}
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-1.5 py-1">
                     <input
                       type="number"
                       value={row.unitPrice}
@@ -321,7 +321,7 @@ function SectionB() {
                       className={cellInputClass("text-right")}
                     />
                   </td>
-                  <td className="px-1.5 py-1.5 text-center">
+                  <td className="px-1.5 py-1 text-center">
                     <button
                       type="button"
                       onClick={() => removeItem(i)}
