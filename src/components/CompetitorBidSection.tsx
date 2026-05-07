@@ -331,17 +331,17 @@ export function CompetitorBidSection({ quotationId }: { quotationId: number }) {
         <div>
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
             <Send size={16} className="text-blue-500" />
-            경쟁 견적 이력
+            3사 견적 비교 단가 이력
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            경쟁 견적 요청 페이지에서 발송한 요청과 수령된 타사 견적을 원본과 비교합니다.
+            3사 견적 요청 페이지에서 발송한 요청과 수령된 타사 견적을 원본과 비교합니다.
           </p>
         </div>
         <Link
           href={`/bid-request?quotationId=${quotationId}`}
           className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
         >
-          <Send size={13} /> 경쟁 견적 요청
+          <Send size={13} /> 3사 견적 요청
         </Link>
       </div>
 
@@ -360,12 +360,12 @@ export function CompetitorBidSection({ quotationId }: { quotationId: number }) {
       {!loading && bidRequests.length === 0 && (
         <div className="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center space-y-3">
           <Send size={32} className="text-slate-200 mx-auto" />
-          <p className="text-sm text-slate-400">발송된 경쟁 견적 요청이 없습니다.</p>
+          <p className="text-sm text-slate-400">발송된 3사 견적 요청이 없습니다.</p>
           <Link
             href={`/bid-request?quotationId=${quotationId}`}
             className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 px-4 py-2 rounded-lg transition"
           >
-            <Send size={13} /> 경쟁 견적 요청하기
+            <Send size={13} /> 3사 견적 요청하기
           </Link>
         </div>
       )}

@@ -91,7 +91,7 @@ export function DbPriceSummarySearch() {
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <Wallet size={18} className="text-blue-500" />
-        사내 DB 단가 검색
+        실적 단가 검색
         <span className="text-[11px] font-normal text-slate-400">
           (엑셀/이미지 일괄 등록 — 명칭·규격 합계)
         </span>

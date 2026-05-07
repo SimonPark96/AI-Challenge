@@ -1,30 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseReceivedBidExcel } from "@/lib/quote/parse-received-bid";
+import { parseQuoteWithOpenAI } from "@/lib/openai/parse-quote";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
-
-// 결정적 문자열 유사도 (bigram Jaccard)
-function norm(s: string) { return s.replace(/\s+/g, "").toLowerCase(); }
-function bigrams(s: string): Set<string> {
-  const set = new Set<string>();
-  for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
-  return set;
-}
-function similarity(a: string, b: string): number {
-  const na = norm(a); const nb = norm(b);
-  if (!na || !nb) return 0;
-  if (na === nb) return 1;
-  if (na.includes(nb) || nb.includes(na)) {
-    return 0.7 * (Math.min(na.length, nb.length) / Math.max(na.length, nb.length)) + 0.2;
-  }
-  const ba = bigrams(na); const bb = bigrams(nb);
-  if (ba.size === 0 || bb.size === 0) return 0;
-  let inter = 0; for (const g of ba) if (bb.has(g)) inter++;
-  return inter / (ba.size + bb.size - inter);
-}
 
 export async function POST(
   req: Request,
@@ -36,16 +16,12 @@ export async function POST(
     return NextResponse.json({ error: "잘못된 id" }, { status: 400 });
   }
 
-  // BidRequest + 원본 QuotationItem 로드
   const bidRequest = await prisma.bidRequest.findUnique({
     where: { id: bidRequestId },
-    include: {
-      quotation: {
-        include: { items: { orderBy: { rowIndex: "asc" } } },
-      },
-    },
   });
-  if (!bidRequest) return NextResponse.json({ error: "견적 요청을 찾을 수 없습니다." }, { status: 404 });
+  if (!bidRequest) {
+    return NextResponse.json({ error: "견적 요청을 찾을 수 없습니다." }, { status: 404 });
+  }
 
   let formData: FormData;
   try { formData = await req.formData(); }
@@ -57,23 +33,29 @@ export async function POST(
   }
 
   const ext = (file.name.split(".").pop() ?? "").toLowerCase();
-  if (!["xlsx", "xls", "csv"].includes(ext)) {
-    return NextResponse.json({ error: "XLSX / XLS / CSV 만 지원합니다." }, { status: 400 });
+  if (!["xlsx", "xls", "csv", "pdf", "docx"].includes(ext)) {
+    return NextResponse.json({ error: "XLSX / XLS / CSV / PDF / DOCX 만 지원합니다." }, { status: 400 });
   }
 
   const companyName = formData.get("companyName");
 
-  let rows;
+  // 일위대가 업로드와 동일한 AI 파싱 로직으로 합계만 추출
+  let parsed;
   try {
-    rows = parseReceivedBidExcel(Buffer.from(await file.arrayBuffer()), file.name);
+    parsed = await parseQuoteWithOpenAI(file);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });
-  }
-  if (rows.length === 0) {
-    return NextResponse.json({ error: "추출된 행이 없습니다." }, { status: 400 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 400 }
+    );
   }
 
-  const origItems = bidRequest.quotation.items;
+  const { costSummary } = parsed;
+  const summed =
+    (costSummary.materialCost ?? 0) +
+    (costSummary.laborCost ?? 0) +
+    (costSummary.expenseCost ?? 0);
+  const totalCost = costSummary.totalCost ?? (summed || null);
 
   // 수령 견적서 생성
   const receivedBid = await prisma.receivedBid.create({
@@ -86,48 +68,35 @@ export async function POST(
     },
   });
 
-  // 각 항목을 원본 견적 항목과 매칭 후 저장
-  const itemData = rows.map((row) => {
-    // 원본 항목 중 이름이 가장 유사한 것 찾기
-    let bestOrig: (typeof origItems)[number] | null = null;
-    let bestScore = 0;
-    for (const orig of origItems) {
-      const score = similarity(row.itemName, orig.itemName) * 0.8 +
-        (row.spec && orig.spec ? similarity(row.spec, orig.spec) * 0.2 : 0);
-      if (score > bestScore) { bestScore = score; bestOrig = orig; }
-    }
+  // 합계를 단일 집계 행으로 저장
+  if (totalCost !== null || costSummary.materialCost !== null) {
+    await prisma.receivedBidItem.create({
+      data: {
+        receivedBidId: receivedBid.id,
+        rowIndex: 0,
+        itemName: "합계",
+        materialCost: costSummary.materialCost,
+        laborCost: costSummary.laborCost,
+        expenseCost: costSummary.expenseCost,
+        totalCost,
+      },
+    });
+  }
 
-    const origUnitPrice = bestOrig?.unitPrice ?? null;
-    const deviationPct =
-      row.totalCost !== null && origUnitPrice !== null && origUnitPrice !== 0
-        ? ((row.totalCost - origUnitPrice) / origUnitPrice) * 100
-        : null;
-
-    return {
-      receivedBidId: receivedBid.id,
-      rowIndex: row.rowIndex,
-      itemName: row.itemName,
-      spec: row.spec,
-      unit: row.unit,
-      materialCost: row.materialCost,
-      laborCost: row.laborCost,
-      expenseCost: row.expenseCost,
-      totalCost: row.totalCost,
-      origItemId: bestScore >= 0.3 ? bestOrig?.id ?? null : null,
-      matchConfidence: bestScore,
-      origDeviationPct: bestScore >= 0.3 ? deviationPct : null,
-    };
-  });
-
-  await prisma.receivedBidItem.createMany({ data: itemData });
-
-  // BidRequest 상태 갱신
   await prisma.bidRequest.update({
     where: { id: bidRequestId },
     data: { status: "received" },
   });
 
-  return NextResponse.json({ receivedBid: { id: receivedBid.id, fileName: file.name }, itemCount: rows.length });
+  return NextResponse.json({
+    receivedBid: { id: receivedBid.id, fileName: file.name },
+    costSummary: {
+      materialCost: costSummary.materialCost,
+      laborCost: costSummary.laborCost,
+      expenseCost: costSummary.expenseCost,
+      totalCost,
+    },
+  });
 }
 
 export async function GET(

@@ -38,10 +38,10 @@ export function ConfidentialImport() {
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <Lock size={18} className="text-rose-500" />
-        기밀 단가 등록
+        사내 DB 단가 등록
       </h2>
       <p className="text-xs text-slate-500">
-        복호화된 내부 기밀 단가 파일을 업로드합니다.{" "}
+        사내 DB 단가 파일을 업로드합니다.{" "}
         <span className="font-medium text-slate-700">
           명칭 / 규격 / 단위 / 재료비 / 노무비 / 경비 / 단가계
         </span>{" "}
@@ -103,7 +103,7 @@ export function ConfidentialImport() {
           className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-1.5 rounded text-sm disabled:opacity-50 inline-flex items-center gap-1.5"
         >
           <Lock size={13} />
-          {uploading ? "등록 중..." : "기밀 단가 등록"}
+          {uploading ? "등록 중..." : "사내 DB 단가 등록"}
         </button>
       </div>
 

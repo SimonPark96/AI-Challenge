@@ -56,7 +56,7 @@ export function DbExcelImport() {
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <FileSpreadsheet size={18} className="text-blue-500" />
-        사내 DB 단가 등록
+        실적 단가 등록
         <InfoTooltip width="w-96">
           엑셀(.xlsx/.xls/.csv) 또는 단가 자료 이미지(.png/.jpg/.webp) 를
           업로드하면 자동으로{" "}

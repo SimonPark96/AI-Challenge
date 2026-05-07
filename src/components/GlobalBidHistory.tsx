@@ -153,7 +153,7 @@ export function GlobalBidHistory() {
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
           <Clock size={15} className="text-slate-400" />
-          경쟁 견적 이력
+          3사 견적 비교 단가 이력
         </h2>
         <Link
           href="/bid-request"
@@ -172,12 +172,12 @@ export function GlobalBidHistory() {
       {!loading && requests.length === 0 && (
         <div className="px-5 py-8 text-center space-y-3">
           <Send size={28} className="text-slate-200 mx-auto" />
-          <p className="text-sm text-slate-400">발송된 경쟁 견적 요청이 없습니다.</p>
+          <p className="text-sm text-slate-400">발송된 3사 견적 요청이 없습니다.</p>
           <Link
             href="/bid-request"
             className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 border border-blue-200 px-3 py-1.5 rounded transition"
           >
-            <Send size={12} /> 경쟁 견적 요청하기
+            <Send size={12} /> 3사 견적 요청하기
           </Link>
         </div>
       )}

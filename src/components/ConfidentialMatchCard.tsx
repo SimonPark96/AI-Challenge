@@ -66,7 +66,6 @@ function ConfBadge({ conf }: { conf: number }) {
 }
 
 export function ConfidentialMatchCard() {
-  const status = useRequestStore((s) => s.status);
   const items = useRequestStore((s) => s.form.items);
 
   const [matchStatus, setMatchStatus] = useState<"idle" | "loading" | "done" | "empty" | "noDb" | "error">("idle");
@@ -77,17 +76,12 @@ export function ConfidentialMatchCard() {
   const lastKeyRef = useRef<string>("");
 
   useEffect(() => {
-    if (status !== "extracted") {
+    const validItems = items.filter((it) => it.itemName.trim() !== "");
+    if (validItems.length === 0) {
       setMatchStatus("idle");
       setMatches([]);
       setError(null);
       lastKeyRef.current = "";
-      return;
-    }
-
-    const validItems = items.filter((it) => it.itemName.trim() !== "");
-    if (validItems.length === 0) {
-      setMatchStatus("empty");
       return;
     }
 
@@ -139,22 +133,27 @@ export function ConfidentialMatchCard() {
       abortRef.current?.abort();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, items]);
-
-  if (matchStatus === "idle") return null;
+  }, [items]);
 
   return (
     <section className="bg-white rounded-lg border border-rose-200 p-5 space-y-4">
       <div>
         <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
           <Lock size={18} className="text-rose-500" />
-          기밀 단가 자동 매칭
+          사내 DB 단가 자동 매칭
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          업로드된 협력사 견적 항목을 사내 기밀 단가와 항목별로 비교합니다.
-          편차가 양수(+)이면 협력사 단가가 기밀 단가보다 높은 것입니다.
+          협력사 견적 항목을 사내 DB 단가와 항목별로 비교합니다.
+          편차가 양수(+)이면 협력사 단가가 사내 DB 단가보다 높은 것입니다.
         </p>
       </div>
+
+      {matchStatus === "idle" && (
+        <div className="text-xs text-slate-400 border border-slate-200 bg-slate-50 rounded p-3 inline-flex items-center gap-2">
+          <Lock size={13} className="text-slate-300" />
+          품목 정보를 입력하면 사내 DB 단가 자동 매칭이 시작됩니다.
+        </div>
+      )}
 
       {matchStatus === "loading" && (
         <div className="text-xs text-rose-600 border border-rose-200 bg-rose-50/40 rounded p-3 inline-flex items-center gap-2">

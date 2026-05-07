@@ -162,7 +162,7 @@ export function PriceSummarySelector() {
       <div>
         <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
           <Wallet size={18} className="text-blue-500" />
-          사내 DB 단가 자동 매칭
+          실적 단가 자동 매칭
           <Sparkles size={14} className="text-blue-400" />
         </h2>
         <p className="text-xs text-slate-500 mt-1 leading-relaxed">

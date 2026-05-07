@@ -77,7 +77,7 @@ export default function DbPage() {
       />
 
       <DomainGroup
-        title="사내 DB 단가"
+        title="실적 단가"
         description="엑셀/이미지 일괄 등록"
         icon={<FileSpreadsheet size={20} />}
         accent="emerald"
@@ -96,8 +96,8 @@ export default function DbPage() {
       />
 
       <DomainGroup
-        title="기밀 단가"
-        description="내부 기밀 단가 — 협력사 견적 1차 비교용"
+        title="사내 DB 단가"
+        description="사내 DB 단가 — 협력사 견적 1차 비교용"
         icon={<Lock size={20} />}
         accent="slate"
         tabs={[

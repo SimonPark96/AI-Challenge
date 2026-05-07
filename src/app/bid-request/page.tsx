@@ -47,6 +47,7 @@ interface BidRequest {
   status: string;
   sentAt: string | null;
   title: string | null;
+  companyName: string | null;
   workType: { id: number; name: string } | null;
   quotation: { id: number; fileName: string } | null;
   receivedBids: { id: number; companyName: string | null; status: string }[];
@@ -288,6 +289,56 @@ function ResultModal({
   );
 }
 
+// ── 수령 견적 테스트 파일 업로드 ──────────────────────────────
+function SampleUploadCell({
+  bidRequestId,
+  onUploaded,
+}: {
+  bidRequestId: number;
+  onUploaded: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("companyName", "테스트");
+      const res = await fetch(`/api/bid-request/${bidRequestId}/receive`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      onUploaded();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="text-slate-400">대기 중</span>
+      <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="inline-flex items-center gap-1 text-[11px] text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded transition disabled:opacity-50"
+      >
+        <Paperclip size={10} />
+        {uploading ? "등록 중..." : "테스트 파일"}
+      </button>
+    </span>
+  );
+}
+
 // ── 메인 페이지 ──────────────────────────────────────────────
 function BidRequestPageInner() {
   const searchParams = useSearchParams();
@@ -300,6 +351,8 @@ function BidRequestPageInner() {
   const [activeSubId, setActiveSubId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailBody, setMailBody] = useState("");
   const [modal, setModal] = useState<null | "confirm" | "sent" | "cancelled">(null);
   const [sending, setSending] = useState(false);
   const [bidRequests, setBidRequests] = useState<BidRequest[]>([]);
@@ -428,28 +481,42 @@ function BidRequestPageInner() {
     const targets = activeSub.contacts.filter((c) => selected.has(c.id));
     if (targets.length === 0) return;
     setSending(true);
+    const autoTitle = `${activeParent?.name} > ${activeSub.name} 견적 요청`;
     try {
-      await Promise.all(
-        targets.map(() =>
+      const results = await Promise.all(
+        targets.map((contact) =>
           fetch("/api/bid-request", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               quotationId: linkedQuotationId,
               workTypeId: activeSubId,
-              title: `${activeParent?.name} > ${activeSub.name} 견적 요청`,
-              description: attachments.length > 0
+              companyName: contact.companyName,
+              title: mailSubject.trim() || autoTitle,
+              description: mailBody.trim() || (attachments.length > 0
                 ? `첨부: ${attachments.map((f) => f.name).join(", ")}`
-                : null,
+                : null),
             }),
           })
         )
       );
+
+      // 하나라도 실패하면 오류 표시
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length > 0) {
+        const errData = await failed[0].json().catch(() => ({}));
+        throw new Error(errData.error ?? `발송 오류 (HTTP ${failed[0].status})`);
+      }
+
       setModal("sent");
       setSelected(new Set());
       setAttachments([]);
+      setMailSubject("");
+      setMailBody("");
       const brRes = await fetch("/api/bid-request");
       setBidRequests((await brRes.json()).requests ?? []);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
     } finally {
       setSending(false);
     }
@@ -479,7 +546,7 @@ function BidRequestPageInner() {
       <header className="space-y-2">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">경쟁 견적 요청</h1>
+            <h1 className="text-2xl font-bold text-slate-800">3사 견적 요청</h1>
             <p className="text-sm text-slate-500 mt-1">
               공종별 협력사에 동일 스펙 도면을 첨부한 견적 요청을 발송합니다.
             </p>
@@ -678,6 +745,30 @@ function BidRequestPageInner() {
                 <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
                   <AttachmentZone files={attachments} onChange={setAttachments} />
 
+                  {/* 메일 제목 / 내용 */}
+                  <div className="space-y-3">
+                    <div className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Mail size={13} />
+                      메일 내용
+                    </div>
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={mailSubject}
+                        onChange={(e) => setMailSubject(e.target.value)}
+                        placeholder={`메일 제목 (기본: ${activeParent?.name ?? ""} > ${activeSub?.name ?? ""} 견적 요청)`}
+                        className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <textarea
+                        value={mailBody}
+                        onChange={(e) => setMailBody(e.target.value)}
+                        rows={3}
+                        placeholder="메일 본문 내용을 입력하세요. (선택사항)"
+                        className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                     <div className="text-sm text-slate-600">
                       {selected.size > 0 ? (
@@ -720,6 +811,7 @@ function BidRequestPageInner() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr>
+                  <th className="text-left p-3 font-medium text-slate-600">수신처</th>
                   <th className="text-left p-3 font-medium text-slate-600">공종</th>
                   <th className="text-left p-3 font-medium text-slate-600">제목</th>
                   <th className="text-left p-3 font-medium text-slate-600">발송일시</th>
@@ -728,9 +820,10 @@ function BidRequestPageInner() {
                 </tr>
               </thead>
               <tbody>
-                {bidRequests.map((r) => (
+                {bidRequests.map((r, idx) => (
                   <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
-                    <td className="p-3 font-medium text-slate-800">{r.workType?.name ?? "-"}</td>
+                    <td className="p-3 font-medium text-slate-800">{r.companyName ?? "-"}</td>
+                    <td className="p-3 text-slate-600 text-xs">{r.workType?.name ?? "-"}</td>
                     <td className="p-3 text-slate-600 text-xs">{r.title ?? "-"}</td>
                     <td className="p-3 text-xs font-mono text-slate-500">{fmtDate(r.sentAt)}</td>
                     <td className="p-3">
@@ -743,7 +836,13 @@ function BidRequestPageInner() {
                       </span>
                     </td>
                     <td className="p-3 text-xs text-slate-500">
-                      {r.receivedBids.length > 0 ? `${r.receivedBids.length}건 수령` : "대기 중"}
+                      {r.receivedBids.length > 0 ? (
+                        `${r.receivedBids.length}건 수령`
+                      ) : idx === 0 ? (
+                        <SampleUploadCell bidRequestId={r.id} onUploaded={loadAll} />
+                      ) : (
+                        <span className="text-slate-400">대기 중</span>
+                      )}
                     </td>
                   </tr>
                 ))}

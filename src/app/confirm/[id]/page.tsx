@@ -6,6 +6,7 @@ import { StepIndicator } from "@/components/StepIndicator";
 import { QuoteSummary } from "@/components/QuoteSummary";
 import { ConfirmAndOrderSection } from "@/components/ConfirmAndOrderSection";
 import { ReviewDecisionCard } from "@/components/ReviewDecisionCard";
+import { NewPriceReviewForm } from "@/components/NewPriceReviewForm";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,19 @@ export default async function ConfirmByIdPage({
         avgDev={avgDev}
         overCount={overCount}
         underCount={underCount}
+      />
+
+      <NewPriceReviewForm
+        quotationFileName={quotation.fileName}
+        quotationItems={items.map(it => ({
+          itemName: it.itemName,
+          spec: it.spec,
+          unit: it.unit,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          totalPrice: it.totalPrice,
+          marketPrice: it.marketPrice,
+        }))}
       />
 
       <ConfirmAndOrderSection

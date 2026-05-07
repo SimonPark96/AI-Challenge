@@ -73,7 +73,7 @@ export function ConfidentialSearch() {
     <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <Lock size={18} className="text-rose-500" />
-        기밀 단가 조회
+        사내 DB 단가 조회
       </h2>
 
       <div className="flex flex-wrap gap-2 items-center">

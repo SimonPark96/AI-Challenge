@@ -12,7 +12,7 @@ export async function GET() {
       receivedBids: { select: { id: true, companyName: true, status: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 100,
+    take: 200,
   });
   return NextResponse.json({ requests });
 }
@@ -24,15 +24,13 @@ export async function POST(req: Request) {
   const workTypeId = body.workTypeId ? Number(body.workTypeId) : null;
   const title = String(body.title ?? "").trim() || null;
   const description = String(body.description ?? "").trim() || null;
-
-  if (!quotationId) {
-    return NextResponse.json({ error: "quotationId 가 필요합니다." }, { status: 400 });
-  }
+  const companyName = String(body.companyName ?? "").trim() || null;
 
   const request = await prisma.bidRequest.create({
     data: {
-      quotationId,
+      quotationId: quotationId ?? undefined,
       workTypeId,
+      companyName,
       title,
       description,
       status: "sent",

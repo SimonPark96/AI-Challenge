@@ -204,9 +204,9 @@ export function TotalComparison({
                 항목
               </th>
               <ColumnHeader label="협력사 견적" subLabel="기준값" accent="partner" />
-              <ColumnHeader label="사내 DB 단가" subLabel={summarySubLabel} accent="summary" />
-              <ColumnHeader label="기밀 단가" subLabel={confSubLabel} accent="conf" />
-              <ColumnHeader label="경쟁 견적 단가" subLabel={competitorSubLabel} accent="competitor" />
+              <ColumnHeader label="실적 단가" subLabel={summarySubLabel} accent="summary" />
+              <ColumnHeader label="사내 DB 단가" subLabel={confSubLabel} accent="conf" />
+              <ColumnHeader label="3사 견적 단가" subLabel={competitorSubLabel} accent="competitor" />
               <ColumnHeader label="AI 매칭 단가" subLabel={itemSubLabel} accent="item" />
             </tr>
           </thead>

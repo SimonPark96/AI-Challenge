@@ -252,15 +252,16 @@ model WorkTypeContact {
 // 타사에 발송한 견적 요청
 model BidRequest {
   id          Int       @id @default(autoincrement())
-  quotationId Int
+  quotationId Int?
   workTypeId  Int?
+  companyName String?
   title       String?
   description String?
   status      String    @default("draft") // draft|sent|received|compared
   sentAt      DateTime?
   createdAt   DateTime  @default(now())
 
-  quotation    Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  quotation    Quotation?    @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   workType     WorkType?     @relation(fields: [workTypeId], references: [id], onDelete: SetNull)
   receivedBids ReceivedBid[]
 
