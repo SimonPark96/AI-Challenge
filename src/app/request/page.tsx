@@ -7,9 +7,11 @@ import { StepIndicator } from "@/components/StepIndicator";
 import { QuoteUpload } from "@/components/QuoteUpload";
 import { RequestFormSection } from "@/components/RequestForm";
 import { PriceSummarySelector } from "@/components/PriceSummarySelector";
+import { ConfidentialMatchCard } from "@/components/ConfidentialMatchCard";
 import { AiChatBot } from "@/components/chat/AiChatBot";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useRequestStore } from "@/lib/stores/request-store";
+import { GlobalBidHistory } from "@/components/GlobalBidHistory";
 
 export default function RequestPage() {
   const router = useRouter();
@@ -86,7 +88,11 @@ export default function RequestPage() {
 
       <RequestFormSection />
 
+      <ConfidentialMatchCard />
+
       <PriceSummarySelector />
+
+      <GlobalBidHistory />
 
       {submitError && (
         <div className="bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded p-3">

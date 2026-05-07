@@ -113,7 +113,8 @@ model Quotation {
   priceSummaryId Int?
   priceSummary   PriceSummary? @relation(fields: [priceSummaryId], references: [id], onDelete: SetNull)
 
-  items QuotationItem[]
+  items       QuotationItem[]
+  bidRequests BidRequest[]
 
   @@index([uploadedAt])
   @@index([priceSummaryId])
@@ -176,11 +177,133 @@ model QuotationItem {
   marketRegion      String? // 자재: 지역 / 노임: 카테고리 라벨 (공사부문/기타직종)
   deviationPct      Float? // (unitPrice - marketPrice) / marketPrice * 100
 
-  quotation    Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  matchedPrice PriceHistory? @relation(fields: [matchedPriceId], references: [id], onDelete: SetNull)
-  matchedWage  WageHistory?  @relation(fields: [matchedWageId], references: [id], onDelete: SetNull)
+  // 기밀 단가 비교 결과
+  confPriceId      Int?    // ConfidentialPrice 매칭 시
+  confConfidence   Float?  // 0..1
+  confUnitPrice    Float?  // 매칭된 기밀 단가계
+  confDeviationPct Float?  // (unitPrice - confUnitPrice) / confUnitPrice * 100
+
+  quotation    Quotation          @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  matchedPrice PriceHistory?      @relation(fields: [matchedPriceId], references: [id], onDelete: SetNull)
+  matchedWage  WageHistory?       @relation(fields: [matchedWageId], references: [id], onDelete: SetNull)
+  confPrice    ConfidentialPrice? @relation(fields: [confPriceId], references: [id], onDelete: SetNull)
 
   @@index([quotationId])
   @@index([matchedPriceId])
   @@index([matchedWageId])
+  @@index([confPriceId])
+}
+
+// 내부 기밀 단가 — 복호화된 사내 기준 단가. 협력사 견적과 1차 비교에 사용.
+model ConfidentialPrice {
+  id           Int      @id @default(autoincrement())
+  name         String
+  spec         String?
+  unit         String?
+  materialCost Float?   // 재료비
+  laborCost    Float?   // 노무비
+  expenseCost  Float?   // 경비
+  totalCost    Float?   // 단가계
+  sourceFile   String?
+  embedding    Json?    // text-embedding-3-small 1536차원
+  fetchedAt    DateTime
+  createdAt    DateTime @default(now())
+
+  matchedItems QuotationItem[]
+
+  @@index([name])
+  @@index([fetchedAt])
+}
+
+// 공종 마스터 — 2계층 구조
+// parentId = null  → 대공종 (건축, 전기, 설비 …)
+// parentId = 대공종id → 세부공종 (골조공사, 마감공사 …)
+// 협력사(WorkTypeContact)는 세부공종에 붙음
+model WorkType {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String?
+  parentId    Int?              // null = 대공종
+  createdAt   DateTime          @default(now())
+
+  parent      WorkType?         @relation("WorkTypeTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    WorkType[]        @relation("WorkTypeTree")
+  contacts    WorkTypeContact[]
+  bidRequests BidRequest[]
+
+  @@index([parentId])
+}
+
+// 공종별 협력사 연락처
+model WorkTypeContact {
+  id          Int      @id @default(autoincrement())
+  workTypeId  Int
+  companyName String
+  email       String
+  contactName String?
+  phone       String?
+  createdAt   DateTime @default(now())
+
+  workType WorkType @relation(fields: [workTypeId], references: [id], onDelete: Cascade)
+
+  @@index([workTypeId])
+}
+
+// 타사에 발송한 견적 요청
+model BidRequest {
+  id          Int       @id @default(autoincrement())
+  quotationId Int
+  workTypeId  Int?
+  title       String?
+  description String?
+  status      String    @default("draft") // draft|sent|received|compared
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  quotation    Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  workType     WorkType?     @relation(fields: [workTypeId], references: [id], onDelete: SetNull)
+  receivedBids ReceivedBid[]
+
+  @@index([quotationId])
+  @@index([workTypeId])
+}
+
+// 타사에서 수령한 견적서
+model ReceivedBid {
+  id           Int       @id @default(autoincrement())
+  bidRequestId Int
+  companyName  String?
+  fileName     String
+  fileSize     Int
+  status       String    @default("pending") // pending|parsing|parsed|compared|failed
+  errorMsg     String?
+  createdAt    DateTime  @default(now())
+
+  bidRequest BidRequest      @relation(fields: [bidRequestId], references: [id], onDelete: Cascade)
+  items      ReceivedBidItem[]
+
+  @@index([bidRequestId])
+}
+
+// 수령한 견적서의 라인 아이템
+model ReceivedBidItem {
+  id            Int     @id @default(autoincrement())
+  receivedBidId Int
+  rowIndex      Int
+  itemName      String
+  spec          String?
+  unit          String?
+  materialCost  Float?  // 재료비
+  laborCost     Float?  // 노무비
+  expenseCost   Float?  // 경비
+  totalCost     Float?  // 단가계
+
+  // 원본 협력사 견적 항목과 매칭 결과
+  origItemId       Int?    // QuotationItem.id
+  origDeviationPct Float?  // (totalCost - orig.unitPrice) / orig.unitPrice * 100
+  matchConfidence  Float?  // 0..1
+
+  receivedBid ReceivedBid @relation(fields: [receivedBidId], references: [id], onDelete: Cascade)
+
+  @@index([receivedBidId])
 }

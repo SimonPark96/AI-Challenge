@@ -1,4 +1,4 @@
-import { Package, HardHat, FileSpreadsheet, Repeat } from "lucide-react";
+import { Package, HardHat, FileSpreadsheet, Repeat, Lock } from "lucide-react";
 import { DbSummary } from "@/components/db/DbSummary";
 import { DbSearch } from "@/components/db/DbSearch";
 import { DbPriceSummarySearch } from "@/components/db/DbPriceSummarySearch";
@@ -9,6 +9,8 @@ import { DbWageList } from "@/components/db/DbWageList";
 import { DbExcelImport } from "@/components/db/DbExcelImport";
 import { DbReset } from "@/components/db/DbReset";
 import { DomainGroup } from "@/components/db/DomainGroup";
+import { ConfidentialImport } from "@/components/db/ConfidentialImport";
+import { ConfidentialSearch } from "@/components/db/ConfidentialSearch";
 import { AiChatBot } from "@/components/chat/AiChatBot";
 
 export default function DbPage() {
@@ -89,6 +91,25 @@ export default function DbPage() {
             key: "search",
             label: "조회",
             content: <DbPriceSummarySearch />,
+          },
+        ]}
+      />
+
+      <DomainGroup
+        title="기밀 단가"
+        description="내부 기밀 단가 — 협력사 견적 1차 비교용"
+        icon={<Lock size={20} />}
+        accent="slate"
+        tabs={[
+          {
+            key: "ingest",
+            label: "등록",
+            content: <ConfidentialImport />,
+          },
+          {
+            key: "search",
+            label: "조회",
+            content: <ConfidentialSearch />,
           },
         ]}
       />

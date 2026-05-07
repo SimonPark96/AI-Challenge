@@ -1,4 +1,4 @@
-import { Building2, Database, Sparkles, Wallet } from "lucide-react";
+import { Building2, Database, Sparkles, Wallet, Lock, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 interface SummaryRef {
@@ -24,6 +24,10 @@ interface Props {
   partnerTotal: number | null;
   partnerCostBreakdown: CostBreakdown;
   summary: SummaryRef | null;
+  confTotal: number | null;
+  confMatchedCount: number;
+  competitorTotal: number | null;
+  competitorBidCount: number;
   itemMarketTotal: number | null;
   itemMarketBreakdown: CostBreakdown;
   itemTotalCount: number;
@@ -43,8 +47,6 @@ function deviationTone(dev: number | null): Tone {
   return "ok";
 }
 
-// 사내 DB / AI 매칭 컬럼이 협력사 견적 대비 얼마나 차이나는지.
-// dev > 0 → 컬럼이 더 비쌈 / dev < 0 → 컬럼이 더 저렴.
 function calcDeviation(
   partner: number | null,
   other: number | null
@@ -60,8 +62,6 @@ const toneCellBg: Record<Tone, string> = {
   neutral: "bg-slate-50/60",
 };
 
-// 라벨은 "이 컬럼(사내 DB / AI 매칭) 이 협력사 견적과 비교해 어떤지" 의 관점.
-// dev > +10 → 컬럼이 협력사보다 비쌈 (rose) / dev < -10 → 컬럼이 협력사보다 저렴 (blue)
 const toneLabels: Record<Tone, string> = {
   high: "협력사보다 비쌈",
   low: "협력사보다 저렴",
@@ -76,7 +76,7 @@ const toneLabelColor: Record<Tone, string> = {
   neutral: "text-slate-500",
 };
 
-type ColumnAccent = "partner" | "summary" | "item";
+type ColumnAccent = "partner" | "summary" | "conf" | "competitor" | "item";
 
 const columnAccents: Record<
   ColumnAccent,
@@ -90,6 +90,14 @@ const columnAccents: Record<
     Icon: Database,
     iconWrap: "bg-sky-100 text-sky-600 ring-1 ring-sky-200/60",
   },
+  conf: {
+    Icon: Lock,
+    iconWrap: "bg-rose-100 text-rose-600 ring-1 ring-rose-200/60",
+  },
+  competitor: {
+    Icon: Send,
+    iconWrap: "bg-amber-100 text-amber-600 ring-1 ring-amber-200/60",
+  },
   item: {
     Icon: Sparkles,
     iconWrap: "bg-violet-100 text-violet-600 ring-1 ring-violet-200/60",
@@ -100,14 +108,23 @@ export function TotalComparison({
   partnerTotal,
   partnerCostBreakdown,
   summary,
+  confTotal,
+  confMatchedCount,
+  competitorTotal,
+  competitorBidCount,
   itemMarketTotal,
   itemMarketBreakdown,
   itemTotalCount,
   itemMatchedCount,
 }: Props) {
   const summaryDev = calcDeviation(partnerTotal, summary?.totalCost ?? null);
+  const confDev = calcDeviation(partnerTotal, confTotal);
+  const competitorDev = calcDeviation(partnerTotal, competitorTotal);
   const itemDev = calcDeviation(partnerTotal, itemMarketTotal);
+
   const summaryTone = deviationTone(summaryDev);
+  const confTone = deviationTone(confDev);
+  const competitorTone = deviationTone(competitorDev);
   const itemTone = deviationTone(itemDev);
 
   const breakdownRows: Array<{
@@ -137,6 +154,12 @@ export function TotalComparison({
   ];
 
   const summarySubLabel = summary ? "단가 자료 합계" : "매칭 자료 없음";
+  const confSubLabel =
+    confMatchedCount > 0 ? `매칭 ${confMatchedCount}건·단가×수량` : "매칭 없음";
+  const competitorSubLabel =
+    competitorBidCount > 0
+      ? `${competitorBidCount}건 수령·최저가`
+      : "수령된 견적 없음";
   const itemSubLabel =
     itemTotalCount === 0
       ? "라인 아이템 없음"
@@ -146,7 +169,7 @@ export function TotalComparison({
 
   return (
     <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="h-0.5 bg-gradient-to-r from-sky-300 via-violet-300 to-amber-300" />
+      <div className="h-0.5 bg-gradient-to-r from-sky-300 via-rose-300 via-amber-300 to-violet-300" />
 
       <div className="px-5 pt-4 pb-3">
         <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2.5">
@@ -180,21 +203,11 @@ export function TotalComparison({
               <th className="text-left py-2 pl-5 pr-3 text-[11px] uppercase tracking-wide text-slate-500 font-semibold w-20">
                 항목
               </th>
-              <ColumnHeader
-                label="협력사 견적"
-                subLabel="기준값"
-                accent="partner"
-              />
-              <ColumnHeader
-                label="사내 DB 단가"
-                subLabel={summarySubLabel}
-                accent="summary"
-              />
-              <ColumnHeader
-                label="AI 매칭 단가 합계"
-                subLabel={itemSubLabel}
-                accent="item"
-              />
+              <ColumnHeader label="협력사 견적" subLabel="기준값" accent="partner" />
+              <ColumnHeader label="사내 DB 단가" subLabel={summarySubLabel} accent="summary" />
+              <ColumnHeader label="기밀 단가" subLabel={confSubLabel} accent="conf" />
+              <ColumnHeader label="경쟁 견적 단가" subLabel={competitorSubLabel} accent="competitor" />
+              <ColumnHeader label="AI 매칭 단가" subLabel={itemSubLabel} accent="item" />
             </tr>
           </thead>
           <tbody>
@@ -204,6 +217,8 @@ export function TotalComparison({
                 label={r.label}
                 partner={r.partner}
                 summary={r.summary}
+                conf={null}
+                competitor={null}
                 item={r.item}
               />
             ))}
@@ -212,10 +227,16 @@ export function TotalComparison({
             <TotalRow
               partnerTotal={partnerTotal}
               summaryTotal={summary?.totalCost ?? null}
-              itemTotal={itemMarketTotal}
               summaryDev={summaryDev}
-              itemDev={itemDev}
               summaryTone={summaryTone}
+              confTotal={confTotal}
+              confDev={confDev}
+              confTone={confTone}
+              competitorTotal={competitorTotal}
+              competitorDev={competitorDev}
+              competitorTone={competitorTone}
+              itemTotal={itemMarketTotal}
+              itemDev={itemDev}
               itemTone={itemTone}
             />
           </tfoot>
@@ -257,11 +278,15 @@ function BodyRow({
   label,
   partner,
   summary,
+  conf,
+  competitor,
   item,
 }: {
   label: string;
   partner: number | null;
   summary: number | null;
+  conf: number | null;
+  competitor: number | null;
   item: number | null;
 }) {
   return (
@@ -271,6 +296,8 @@ function BodyRow({
       </td>
       <BodyCell value={partner} />
       <BodyCell value={summary} />
+      <BodyCell value={conf} />
+      <BodyCell value={competitor} />
       <BodyCell value={item} />
     </tr>
   );
@@ -287,18 +314,30 @@ function BodyCell({ value }: { value: number | null }) {
 function TotalRow({
   partnerTotal,
   summaryTotal,
-  itemTotal,
   summaryDev,
-  itemDev,
   summaryTone,
+  confTotal,
+  confDev,
+  confTone,
+  competitorTotal,
+  competitorDev,
+  competitorTone,
+  itemTotal,
+  itemDev,
   itemTone,
 }: {
   partnerTotal: number | null;
   summaryTotal: number | null;
-  itemTotal: number | null;
   summaryDev: number | null;
-  itemDev: number | null;
   summaryTone: Tone;
+  confTotal: number | null;
+  confDev: number | null;
+  confTone: Tone;
+  competitorTotal: number | null;
+  competitorDev: number | null;
+  competitorTone: Tone;
+  itemTotal: number | null;
+  itemDev: number | null;
   itemTone: Tone;
 }) {
   return (
@@ -308,6 +347,8 @@ function TotalRow({
       </td>
       <TotalCell value={partnerTotal} dev={null} tone="neutral" isBase />
       <TotalCell value={summaryTotal} dev={summaryDev} tone={summaryTone} />
+      <TotalCell value={confTotal} dev={confDev} tone={confTone} />
+      <TotalCell value={competitorTotal} dev={competitorDev} tone={competitorTone} />
       <TotalCell value={itemTotal} dev={itemDev} tone={itemTone} />
     </tr>
   );

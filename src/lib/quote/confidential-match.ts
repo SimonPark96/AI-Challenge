@@ -1,0 +1,189 @@
+import { prisma } from "../prisma";
+import { buildEmbeddingText, cosineSimilarity, embedText } from "../openai/embed";
+
+const MAX_CANDIDATES = 2000;
+const DETERMINISTIC_WEIGHT = 0.6;
+const ACRONYM_TOKEN_BONUS = 0.1;
+const ACRONYM_BONUS_CAP = 0.2;
+
+export interface ConfidentialMatchResult {
+  rowIndex: number;
+  itemName: string;
+  spec: string | null;
+  unitPrice: number | null;
+  confId: number | null;
+  confName: string | null;
+  confSpec: string | null;
+  confUnit: string | null;
+  confTotalCost: number | null;
+  confidence: number;
+  deviationPct: number | null;
+}
+
+interface CandidateRow {
+  id: number;
+  name: string;
+  spec: string | null;
+  unit: string | null;
+  totalCost: number | null;
+  embedding: unknown;
+}
+
+export async function matchItemsToConfidential(
+  items: Array<{ rowIndex: number; itemName: string; spec?: string | null; unitPrice?: number | null }>
+): Promise<ConfidentialMatchResult[]> {
+  if (items.length === 0) return [];
+
+  // 후보 풀 1회 로드
+  const pool = await prisma.confidentialPrice.findMany({
+    select: { id: true, name: true, spec: true, unit: true, totalCost: true, embedding: true },
+    orderBy: { fetchedAt: "desc" },
+    take: MAX_CANDIDATES,
+  });
+
+  if (pool.length === 0) {
+    return items.map((it) => ({
+      rowIndex: it.rowIndex,
+      itemName: it.itemName,
+      spec: it.spec ?? null,
+      unitPrice: it.unitPrice ?? null,
+      confId: null,
+      confName: null,
+      confSpec: null,
+      confUnit: null,
+      confTotalCost: null,
+      confidence: 0,
+      deviationPct: null,
+    }));
+  }
+
+  return Promise.all(
+    items.map(async (it) => {
+      const cleanName = it.itemName.trim();
+      if (!cleanName) {
+        return {
+          rowIndex: it.rowIndex,
+          itemName: it.itemName,
+          spec: it.spec ?? null,
+          unitPrice: it.unitPrice ?? null,
+          confId: null,
+          confName: null,
+          confSpec: null,
+          confUnit: null,
+          confTotalCost: null,
+          confidence: 0,
+          deviationPct: null,
+        };
+      }
+
+      let queryVec: number[] | null = null;
+      try {
+        queryVec = await embedText(buildEmbeddingText(cleanName));
+      } catch {
+        /* deterministic 단독 */
+      }
+
+      type Scored = { row: CandidateRow; combined: number; cosine: number; deterministic: number };
+      const scored: Scored[] = pool.map((row) => {
+        const det = deterministicScore(cleanName, it.spec ?? null, row.name, row.spec);
+        const acro = acronymBonus(cleanName, row.name);
+        if (queryVec && Array.isArray(row.embedding)) {
+          const cos = cosineSimilarity(queryVec, row.embedding as number[]);
+          return { row, cosine: cos, deterministic: det, combined: cos + DETERMINISTIC_WEIGHT * det + acro };
+        }
+        return { row, cosine: 0, deterministic: det, combined: det + acro };
+      });
+
+      scored.sort((a, b) => b.combined - a.combined);
+      const best = scored[0];
+
+      if (!best) {
+        return {
+          rowIndex: it.rowIndex,
+          itemName: it.itemName,
+          spec: it.spec ?? null,
+          unitPrice: it.unitPrice ?? null,
+          confId: null,
+          confName: null,
+          confSpec: null,
+          confUnit: null,
+          confTotalCost: null,
+          confidence: 0,
+          deviationPct: null,
+        };
+      }
+
+      const confidence = Math.max(0, Math.min(1, queryVec ? best.cosine : best.deterministic));
+      const partnerPrice = it.unitPrice ?? null;
+      const confPrice = best.row.totalCost;
+      const deviationPct =
+        partnerPrice !== null && confPrice !== null && confPrice !== 0
+          ? ((partnerPrice - confPrice) / confPrice) * 100
+          : null;
+
+      return {
+        rowIndex: it.rowIndex,
+        itemName: it.itemName,
+        spec: it.spec ?? null,
+        unitPrice: partnerPrice,
+        confId: best.row.id,
+        confName: best.row.name,
+        confSpec: best.row.spec,
+        confUnit: best.row.unit,
+        confTotalCost: confPrice,
+        confidence,
+        deviationPct,
+      };
+    })
+  );
+}
+
+function shortAsciiTokens(s: string): Set<string> {
+  const tokens = s.match(/[A-Za-z0-9]+/g) ?? [];
+  const out = new Set<string>();
+  for (const t of tokens) {
+    if (t.length >= 2 && t.length <= 6) out.add(t.toUpperCase());
+  }
+  return out;
+}
+
+function acronymBonus(a: string, b: string): number {
+  const A = shortAsciiTokens(a);
+  if (A.size === 0) return 0;
+  const B = shortAsciiTokens(b);
+  if (B.size === 0) return 0;
+  let n = 0;
+  for (const t of A) if (B.has(t)) n++;
+  return Math.min(n * ACRONYM_TOKEN_BONUS, ACRONYM_BONUS_CAP);
+}
+
+function deterministicScore(a: string, sa: string | null, b: string, sb: string | null): number {
+  return stringSimilarity(a, b) * 0.8 + (sa && sb ? stringSimilarity(sa, sb) * 0.2 : 0);
+}
+
+function stringSimilarity(a: string, b: string): number {
+  const na = a.replace(/\s+/g, "").toLowerCase();
+  const nb = b.replace(/\s+/g, "").toLowerCase();
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) {
+    return 0.7 * (Math.min(na.length, nb.length) / Math.max(na.length, nb.length)) + 0.2;
+  }
+  return bigramJaccard(na, nb);
+}
+
+function bigramJaccard(a: string, b: string): number {
+  const ba = bigrams(a);
+  const bb = bigrams(b);
+  if (ba.size === 0 || bb.size === 0) return 0;
+  let inter = 0;
+  for (const g of ba) if (bb.has(g)) inter++;
+  const union = ba.size + bb.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
+function bigrams(s: string): Set<string> {
+  const set = new Set<string>();
+  for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
+  return set;
+}

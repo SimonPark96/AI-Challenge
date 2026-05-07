@@ -31,16 +31,24 @@ export default async function ReviewByIdPage({
   const qid = Number(id);
   if (!Number.isFinite(qid) || qid <= 0) notFound();
 
-  const quotation = await prisma.quotation.findUnique({
-    where: { id: qid },
-    include: {
-      items: {
-        orderBy: { rowIndex: "asc" },
-        include: { matchedPrice: true, matchedWage: true },
+  const [quotation, bidRequests] = await Promise.all([
+    prisma.quotation.findUnique({
+      where: { id: qid },
+      include: {
+        items: {
+          orderBy: { rowIndex: "asc" },
+          include: { matchedPrice: true, matchedWage: true },
+        },
+        priceSummary: true,
       },
-      priceSummary: true,
-    },
-  });
+    }),
+    prisma.bidRequest.findMany({
+      where: { quotationId: qid },
+      include: {
+        receivedBids: { include: { items: true } },
+      },
+    }),
+  ]);
   if (!quotation) notFound();
 
   const meta =
@@ -92,6 +100,32 @@ export default async function ReviewByIdPage({
     laborCost: num(meta?.laborCost),
     expenseCost: num(meta?.expenseCost),
   };
+
+  // 기밀 단가 합계: confUnitPrice × quantity
+  const confMatched = quotation.items.filter((it) => it.confUnitPrice != null);
+  const confTotal =
+    confMatched.length > 0
+      ? confMatched.reduce((a, it) => a + (it.confUnitPrice ?? 0) * (it.quantity ?? 1), 0)
+      : null;
+
+  // 경쟁 견적 단가: 수령된 견적별 (매칭 항목 단가 × 원본 수량) 합계 중 최저가
+  const origQtyMap = new Map(quotation.items.map((it) => [it.id, it.quantity ?? 1]));
+  const receivedTotals: number[] = [];
+  for (const br of bidRequests) {
+    for (const rb of br.receivedBids) {
+      let sum = 0;
+      let matched = false;
+      for (const ri of rb.items) {
+        if (ri.origItemId !== null && ri.totalCost !== null) {
+          sum += ri.totalCost * (origQtyMap.get(ri.origItemId) ?? 1);
+          matched = true;
+        }
+      }
+      if (matched) receivedTotals.push(sum);
+    }
+  }
+  const competitorTotal = receivedTotals.length > 0 ? Math.min(...receivedTotals) : null;
+  const competitorBidCount = receivedTotals.length;
 
   // AI 매칭 단가 합계: 각 라인의 시장단가 × 수량 합산 (매칭된 행만)
   const itemMatched = quotation.items.filter((it) => it.marketPrice != null);
@@ -159,6 +193,10 @@ export default async function ReviewByIdPage({
               }
             : null
         }
+        confTotal={confTotal}
+        confMatchedCount={confMatched.length}
+        competitorTotal={competitorTotal}
+        competitorBidCount={competitorBidCount}
         itemMarketTotal={itemMarketTotal}
         itemMarketBreakdown={itemMarketBreakdown}
         itemTotalCount={quotation.items.length}

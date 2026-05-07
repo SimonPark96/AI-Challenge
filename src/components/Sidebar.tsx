@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, FileSearch, Database } from "lucide-react";
+import { LayoutGrid, FileSearch, Database, Send } from "lucide-react";
 
 interface MenuItem {
   href: string;
@@ -14,6 +14,7 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { href: "/dashboard", label: "대시보드", icon: LayoutGrid },
   { href: "/request", label: "단가 검토 요청", icon: FileSearch },
+  { href: "/bid-request", label: "경쟁 견적 요청", icon: Send },
   { href: "/db", label: "DB 관리", icon: Database },
 ];
 
