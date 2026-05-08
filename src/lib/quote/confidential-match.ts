@@ -1,5 +1,5 @@
 import { prisma } from "../prisma";
-import { buildEmbeddingText, cosineSimilarity, embedText } from "../openai/embed";
+import { buildEmbeddingText, cosineSimilarity, embedTexts } from "../openai/embed";
 
 const MAX_CANDIDATES = 2000;
 const DETERMINISTIC_WEIGHT = 0.6;
@@ -57,85 +57,88 @@ export async function matchItemsToConfidential(
     }));
   }
 
-  return Promise.all(
-    items.map(async (it) => {
-      const cleanName = it.itemName.trim();
-      if (!cleanName) {
-        return {
-          rowIndex: it.rowIndex,
-          itemName: it.itemName,
-          spec: it.spec ?? null,
-          unitPrice: it.unitPrice ?? null,
-          confId: null,
-          confName: null,
-          confSpec: null,
-          confUnit: null,
-          confTotalCost: null,
-          confidence: 0,
-          deviationPct: null,
-        };
-      }
+  // 모든 아이템 임베딩을 단일 배치 API 호출로 처리 (N번 → 1번)
+  const cleanNames = items.map((it) => buildEmbeddingText(it.itemName.trim()));
+  let queryVecs: (number[] | null)[] = new Array(items.length).fill(null);
+  try {
+    const vecs = await embedTexts(cleanNames);
+    queryVecs = vecs;
+  } catch {
+    /* 임베딩 실패 시 deterministic 스코어만 사용 */
+  }
 
-      let queryVec: number[] | null = null;
-      try {
-        queryVec = await embedText(buildEmbeddingText(cleanName));
-      } catch {
-        /* deterministic 단독 */
-      }
-
-      type Scored = { row: CandidateRow; combined: number; cosine: number; deterministic: number };
-      const scored: Scored[] = pool.map((row) => {
-        const det = deterministicScore(cleanName, it.spec ?? null, row.name, row.spec);
-        const acro = acronymBonus(cleanName, row.name);
-        if (queryVec && Array.isArray(row.embedding)) {
-          const cos = cosineSimilarity(queryVec, row.embedding as number[]);
-          return { row, cosine: cos, deterministic: det, combined: cos + DETERMINISTIC_WEIGHT * det + acro };
-        }
-        return { row, cosine: 0, deterministic: det, combined: det + acro };
-      });
-
-      scored.sort((a, b) => b.combined - a.combined);
-      const best = scored[0];
-
-      if (!best) {
-        return {
-          rowIndex: it.rowIndex,
-          itemName: it.itemName,
-          spec: it.spec ?? null,
-          unitPrice: it.unitPrice ?? null,
-          confId: null,
-          confName: null,
-          confSpec: null,
-          confUnit: null,
-          confTotalCost: null,
-          confidence: 0,
-          deviationPct: null,
-        };
-      }
-
-      const confidence = Math.max(0, Math.min(1, queryVec ? best.cosine : best.deterministic));
-      const partnerPrice = it.unitPrice ?? null;
-      const confPrice = best.row.totalCost;
-      const deviationPct =
-        partnerPrice !== null && confPrice !== null && confPrice !== 0
-          ? ((partnerPrice - confPrice) / confPrice) * 100
-          : null;
-
+  return items.map((it, idx) => {
+    const cleanName = it.itemName.trim();
+    if (!cleanName) {
       return {
         rowIndex: it.rowIndex,
         itemName: it.itemName,
         spec: it.spec ?? null,
-        unitPrice: partnerPrice,
-        confId: best.row.id,
-        confName: best.row.name,
-        confSpec: best.row.spec,
-        confUnit: best.row.unit,
-        confTotalCost: confPrice,
-        confidence,
-        deviationPct,
+        unitPrice: it.unitPrice ?? null,
+        confId: null,
+        confName: null,
+        confSpec: null,
+        confUnit: null,
+        confTotalCost: null,
+        confidence: 0,
+        deviationPct: null,
       };
-    })
-  );
+    }
+
+    const queryVec = queryVecs[idx];
+
+    type Scored = { row: CandidateRow; combined: number; cosine: number; deterministic: number };
+    const scored: Scored[] = pool.map((row) => {
+      const det = deterministicScore(cleanName, it.spec ?? null, row.name, row.spec);
+      const acro = acronymBonus(cleanName, row.name);
+      if (queryVec && Array.isArray(row.embedding)) {
+        const cos = cosineSimilarity(queryVec, row.embedding as number[]);
+        return { row, cosine: cos, deterministic: det, combined: cos + DETERMINISTIC_WEIGHT * det + acro };
+      }
+      return { row, cosine: 0, deterministic: det, combined: det + acro };
+    });
+
+    scored.sort((a, b) => b.combined - a.combined);
+    const best = scored[0];
+
+    if (!best) {
+      return {
+        rowIndex: it.rowIndex,
+        itemName: it.itemName,
+        spec: it.spec ?? null,
+        unitPrice: it.unitPrice ?? null,
+        confId: null,
+        confName: null,
+        confSpec: null,
+        confUnit: null,
+        confTotalCost: null,
+        confidence: 0,
+        deviationPct: null,
+      };
+    }
+
+    const confidence = Math.max(0, Math.min(1, queryVec ? best.cosine : best.deterministic));
+    const partnerPrice = it.unitPrice ?? null;
+    const confPrice = best.row.totalCost;
+    const deviationPct =
+      partnerPrice !== null && confPrice !== null && confPrice !== 0
+        ? ((partnerPrice - confPrice) / confPrice) * 100
+        : null;
+
+    return {
+      rowIndex: it.rowIndex,
+      itemName: it.itemName,
+      spec: it.spec ?? null,
+      unitPrice: partnerPrice,
+      confId: best.row.id,
+      confName: best.row.name,
+      confSpec: best.row.spec,
+      confUnit: best.row.unit,
+      confTotalCost: confPrice,
+      confidence,
+      deviationPct,
+    };
+  });
 }
 
 function shortAsciiTokens(s: string): Set<string> {

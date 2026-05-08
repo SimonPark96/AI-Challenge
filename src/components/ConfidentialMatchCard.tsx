@@ -85,51 +85,56 @@ export function ConfidentialMatchCard() {
       return;
     }
 
-    // 항목이 달라질 때만 재실행
+    // 항목 내용이 실제로 달라진 경우에만 처리
     const key = validItems.map((it) => `${it.itemName}|${it.spec}|${it.unitPrice}`).join(";;");
     if (key === lastKeyRef.current) return;
-    lastKeyRef.current = key;
 
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
+    // 타이핑 중 연속 호출 방지: 800ms debounce
+    const timer = setTimeout(() => {
+      lastKeyRef.current = key;
 
-    setMatchStatus("loading");
-    setError(null);
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
 
-    fetch("/api/confidential/match", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: validItems.map((it, i) => ({
-          rowIndex: i,
-          itemName: it.itemName,
-          spec: it.spec || null,
-          unitPrice: it.unitPrice ? Number(it.unitPrice) : null,
-        })),
-      }),
-      signal: ac.signal,
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-        const rows: MatchRow[] = data.matches ?? [];
-        const hasAny = rows.some((r) => r.confId !== null);
-        if (!hasAny) {
-          setMatchStatus("noDb");
-          setMatches([]);
-        } else {
-          setMatches(rows);
-          setMatchStatus("done");
-        }
+      setMatchStatus("loading");
+      setError(null);
+
+      fetch("/api/confidential/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: validItems.map((it, i) => ({
+            rowIndex: i,
+            itemName: it.itemName,
+            spec: it.spec || null,
+            unitPrice: it.unitPrice ? Number(it.unitPrice) : null,
+          })),
+        }),
+        signal: ac.signal,
       })
-      .catch((err: Error) => {
-        if (err.name === "AbortError") return;
-        setError(err.message);
-        setMatchStatus("error");
-      });
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+          const rows: MatchRow[] = data.matches ?? [];
+          const hasAny = rows.some((r) => r.confId !== null);
+          if (!hasAny) {
+            setMatchStatus("noDb");
+            setMatches([]);
+          } else {
+            setMatches(rows);
+            setMatchStatus("done");
+          }
+        })
+        .catch((err: Error) => {
+          if (err.name === "AbortError") return;
+          setError(err.message);
+          setMatchStatus("error");
+        });
+    }, 800);
 
     return () => {
+      clearTimeout(timer);
       abortRef.current?.abort();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

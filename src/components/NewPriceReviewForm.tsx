@@ -427,6 +427,23 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName }: Props)
     return [makeRow()];
   });
 
+  // 단가산정기준 각 항목별 rows (O/△ 선택 시 단가검토에 표시)
+  const [contractRows, setContractRows] = useState<PriceRow[]>([makeRow()]);
+  const [dbRows, setDbRows] = useState<PriceRow[]>([makeRow()]);
+  const [actualRows, setActualRows] = useState<PriceRow[]>([makeRow()]);
+  const [unitRows, setUnitRows] = useState<PriceRow[]>([makeRow()]);
+
+  function getBasisRows(key: string): { rows: PriceRow[]; setRows: (r: PriceRow[]) => void } | null {
+    switch (key) {
+      case "contract": return { rows: contractRows, setRows: setContractRows };
+      case "db":       return { rows: dbRows,       setRows: setDbRows };
+      case "actual":   return { rows: actualRows,   setRows: setActualRows };
+      case "estimate": return { rows: estimateRows, setRows: setEstimateRows };
+      case "unit":     return { rows: unitRows,     setRows: setUnitRows };
+      default: return null;
+    }
+  }
+
   const [reviewRows, setReviewRows] = useState<ReviewRow[]>(() => {
     if (quotationItems && quotationItems.length > 0) {
       const matched = quotationItems.filter(it => it.marketPrice != null);
@@ -598,13 +615,38 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName }: Props)
         <div className="space-y-4">
           <label className="block text-sm font-semibold text-slate-700">단가검토</label>
 
-          <div>
-            <p className="text-xs font-medium text-slate-500 mb-2">1) 견적가</p>
-            <EstimateTable rows={estimateRows} setRows={setEstimateRows} />
-          </div>
+          {/* 단가산정기준에서 O 또는 △ 선택된 항목만 동적으로 표시 */}
+          {(() => {
+            const active = basisDefs.filter(
+              ({ key }) => basisMarks[key] === "O" || basisMarks[key] === "△"
+            );
+            return active.map(({ key, label }, idx) => {
+              const brs = getBasisRows(key);
+              if (!brs) return null;
+              const mark = basisMarks[key];
+              const markBadge =
+                mark === "O"
+                  ? "text-blue-600 border-blue-300 bg-blue-50"
+                  : "text-amber-600 border-amber-300 bg-amber-50";
+              return (
+                <div key={key}>
+                  <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5">
+                    {idx + 1}) {label}
+                    <span className={`text-[10px] font-bold border rounded px-1 py-0 ${markBadge}`}>
+                      {mark}
+                    </span>
+                  </p>
+                  <EstimateTable rows={brs.rows} setRows={brs.setRows} />
+                </div>
+              );
+            });
+          })()}
 
+          {/* 검토단가는 항상 마지막 번호로 표시 */}
           <div>
-            <p className="text-xs font-medium text-slate-500 mb-2">2) 검토단가</p>
+            <p className="text-xs font-medium text-slate-500 mb-2">
+              {basisDefs.filter(({ key }) => basisMarks[key] === "O" || basisMarks[key] === "△").length + 1}) 검토단가
+            </p>
             <ReviewTable rows={reviewRows} setRows={setReviewRows} />
           </div>
 

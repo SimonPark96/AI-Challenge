@@ -6,10 +6,25 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const requests = await prisma.bidRequest.findMany({
-    include: {
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      sentAt: true,
+      companyName: true,
       workType: { select: { id: true, name: true } },
       quotation: { select: { id: true, fileName: true } },
-      receivedBids: { select: { id: true, companyName: true, status: true } },
+      receivedBids: {
+        select: {
+          id: true,
+          companyName: true,
+          status: true,
+          fileName: true,
+          items: {
+            select: { materialCost: true, laborCost: true, expenseCost: true, totalCost: true },
+          },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
     take: 200,

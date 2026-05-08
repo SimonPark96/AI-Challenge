@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,10 +14,15 @@ import {
   CheckCircle2,
   Clock,
   ChevronRight,
+  ChevronDown,
   X,
   Paperclip,
   FileText,
   LinkIcon,
+  Pencil,
+  SlidersHorizontal,
+  RotateCcw,
+  Eye,
 } from "lucide-react";
 
 interface Contact {
@@ -50,14 +55,31 @@ interface BidRequest {
   companyName: string | null;
   workType: { id: number; name: string } | null;
   quotation: { id: number; fileName: string } | null;
-  receivedBids: { id: number; companyName: string | null; status: string }[];
+  receivedBids: {
+    id: number;
+    companyName: string | null;
+    status: string;
+    fileName: string;
+    items: { materialCost: number | null; laborCost: number | null; expenseCost: number | null; totalCost: number | null }[];
+  }[];
+}
+
+interface BidGroup {
+  key: string;
+  title: string | null;
+  sentAt: string | null;
+  workType: { id: number; name: string } | null;
+  quotation: { id: number; fileName: string } | null;
+  requests: BidRequest[];
 }
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "-";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  // UTC+9 offset 적용으로 서버/클라이언트 모두 동일한 KST 결과 보장
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}.${String(kst.getUTCMonth() + 1).padStart(2, "0")}.${String(kst.getUTCDate()).padStart(2, "0")} ${String(kst.getUTCHours()).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 // ── 협력사 추가 폼 ──────────────────────────────────────────
@@ -138,6 +160,110 @@ function AddContactForm({
         </button>
       </div>
     </form>
+  );
+}
+
+// ── 협력사 인라인 수정 행 ────────────────────────────────────
+function EditContactRow({
+  contact,
+  subId,
+  onSaved,
+  onCancel,
+}: {
+  contact: Contact;
+  subId: number;
+  onSaved: (c: Contact) => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState({
+    companyName: contact.companyName,
+    email: contact.email,
+    contactName: contact.contactName ?? "",
+    phone: contact.phone ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!form.companyName.trim() || !form.email.trim()) {
+      alert("업체명·이메일은 필수입니다.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/work-types/${subId}/contacts/${contact.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      onSaved(data.contact);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <tr className="border-t border-blue-100 bg-blue-50/40">
+      <td className="p-2 text-center">
+        <input type="checkbox" disabled className="rounded opacity-30" />
+      </td>
+      <td className="p-2">
+        <input
+          value={form.companyName}
+          onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
+          className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder="업체명"
+        />
+      </td>
+      <td className="p-2">
+        <input
+          type="email"
+          value={form.email}
+          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+          className="w-full border border-blue-300 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder="이메일"
+        />
+      </td>
+      <td className="p-2">
+        <input
+          value={form.contactName}
+          onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))}
+          className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder="담당자"
+        />
+      </td>
+      <td className="p-2">
+        <input
+          value={form.phone}
+          onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+          className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder="전화번호"
+        />
+      </td>
+      <td className="p-2">
+        <div className="flex items-center gap-1 justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="text-xs text-slate-500 px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? "저장 중..." : "저장"}
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -254,7 +380,7 @@ function ConfirmModal({
   );
 }
 
-// ── 결과 모달 (전송 완료 / 취소) ───────────────────────────────
+// ── 결과 모달 ────────────────────────────────────────────────
 function ResultModal({
   type,
   onClose,
@@ -289,7 +415,85 @@ function ResultModal({
   );
 }
 
-// ── 수령 견적 테스트 파일 업로드 ──────────────────────────────
+// ── 수령 견적 파일 미리보기 모달 ──────────────────────────────
+type PreviewBid = {
+  fileName: string;
+  companyName: string | null;
+  items: { materialCost: number | null; laborCost: number | null; expenseCost: number | null; totalCost: number | null }[];
+};
+
+function fmtMoney(n: number | null | undefined): string {
+  if (n == null) return "-";
+  return n.toLocaleString("ko-KR") + "원";
+}
+
+function FilePreviewModal({ bid, onClose }: { bid: PreviewBid; onClose: () => void }) {
+  const cost = bid.items[0] ?? null;
+  const rows = [
+    { label: "재료비", value: cost?.materialCost },
+    { label: "노무비", value: cost?.laborCost },
+    { label: "경비",   value: cost?.expenseCost },
+  ].filter((r) => r.value != null);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText size={15} className="text-blue-500 shrink-0" />
+            <span className="text-sm font-bold text-slate-800 truncate">{bid.fileName}</span>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 shrink-0 transition">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* 업체명 */}
+        <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
+          <p className="text-[11px] text-slate-500 mb-0.5">업체명</p>
+          <p className="text-sm font-semibold text-slate-800">{bid.companyName ?? "-"}</p>
+        </div>
+
+        {/* 비용 요약 */}
+        <div className="px-5 py-4 space-y-1">
+          <p className="text-xs font-semibold text-slate-600 mb-3">견적 비용 요약</p>
+          {cost ? (
+            <>
+              {rows.map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+                  <span className="text-xs text-slate-500">{label}</span>
+                  <span className="text-sm font-mono text-slate-800">{fmtMoney(value)}</span>
+                </div>
+              ))}
+              {cost.totalCost != null && (
+                <div className="flex items-center justify-between mt-3 px-3 py-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                  <span className="text-xs font-bold text-blue-700">합계</span>
+                  <span className="text-base font-mono font-bold text-blue-700">{fmtMoney(cost.totalCost)}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-slate-400 py-4 text-center">저장된 비용 데이터가 없습니다.</p>
+          )}
+        </div>
+
+        {/* 하단 안내 */}
+        <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-100">
+          <p className="text-[11px] text-slate-400">AI가 파싱한 비용 요약입니다. 원본 파일은 서버에 저장되지 않습니다.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 수령 견적 파일 업로드 셀 ─────────────────────────────────
 function SampleUploadCell({
   bidRequestId,
   onUploaded,
@@ -325,15 +529,14 @@ function SampleUploadCell({
 
   return (
     <span className="inline-flex items-center gap-2">
-      <span className="text-slate-400">대기 중</span>
       <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
       <button
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="inline-flex items-center gap-1 text-[11px] text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded transition disabled:opacity-50"
+        className="inline-flex items-center gap-1 text-[11px] text-amber-700 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded transition disabled:opacity-50"
       >
         <Paperclip size={10} />
-        {uploading ? "등록 중..." : "테스트 파일"}
+        {uploading ? "등록 중..." : "업로드 필요"}
       </button>
     </span>
   );
@@ -358,6 +561,17 @@ function BidRequestPageInner() {
   const [bidRequests, setBidRequests] = useState<BidRequest[]>([]);
   const [newWorkTypeName, setNewWorkTypeName] = useState("");
   const [newSubName, setNewSubName] = useState("");
+  const [editingContactId, setEditingContactId] = useState<number | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [filterCompany, setFilterCompany] = useState("");
+  const [filterWorkType, setFilterWorkType] = useState("");
+  const [filterTitle, setFilterTitle] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [previewBid, setPreviewBid] = useState<PreviewBid | null>(null);
+  const [activeFilterCol, setActiveFilterCol] = useState<"company" | "workType" | "title" | "date" | "status" | null>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -462,6 +676,19 @@ function BidRequestPageInner() {
     );
   }
 
+  function updateContact(subId: number, updated: Contact) {
+    setWorkTypes((prev) =>
+      prev.map((w) => ({
+        ...w,
+        children: w.children.map((s) =>
+          s.id === subId
+            ? { ...s, contacts: s.contacts.map((c) => c.id === updated.id ? updated : c) }
+            : s
+        ),
+      }))
+    );
+  }
+
   async function deleteContact(subId: number, contactId: number) {
     if (!confirm("이 협력사를 삭제할까요?")) return;
     await fetch(`/api/work-types/${subId}/contacts/${contactId}`, { method: "DELETE" });
@@ -501,7 +728,6 @@ function BidRequestPageInner() {
         )
       );
 
-      // 하나라도 실패하면 오류 표시
       const failed = results.filter((r) => !r.ok);
       if (failed.length > 0) {
         const errData = await failed[0].json().catch(() => ({}));
@@ -519,6 +745,115 @@ function BidRequestPageInner() {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
       setSending(false);
+    }
+  }
+
+  function toggleGroup(key: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  // 발송 이력 그룹화: 동일 title + workTypeId + sentAt 1분 이내 → 하나의 그룹
+  const bidGroups = useMemo<BidGroup[]>(() => {
+    const groups: BidGroup[] = [];
+    for (const req of bidRequests) {
+      const reqTime = req.sentAt ? new Date(req.sentAt).getTime() : 0;
+      const match = groups.find((g) => {
+        const gTime = g.sentAt ? new Date(g.sentAt).getTime() : 0;
+        return (
+          g.title === req.title &&
+          g.workType?.id === req.workType?.id &&
+          Math.abs(gTime - reqTime) < 60_000
+        );
+      });
+      if (match) {
+        match.requests.push(req);
+      } else {
+        groups.push({
+          key: `${req.title ?? ""}_${req.workType?.id ?? 0}_${req.sentAt ?? req.id}`,
+          title: req.title,
+          sentAt: req.sentAt,
+          workType: req.workType,
+          quotation: req.quotation,
+          requests: [req],
+        });
+      }
+    }
+    return groups;
+  }, [bidRequests]);
+
+  const filteredGroups = useMemo<BidGroup[]>(() => {
+    return bidGroups.filter((group) => {
+      if (filterCompany.trim()) {
+        const term = filterCompany.trim().toLowerCase();
+        const match = group.requests.some((r) =>
+          r.companyName?.toLowerCase().includes(term)
+        );
+        if (!match) return false;
+      }
+      if (filterWorkType.trim()) {
+        const term = filterWorkType.trim().toLowerCase();
+        if (!group.workType?.name.toLowerCase().includes(term)) return false;
+      }
+      if (filterTitle.trim()) {
+        const term = filterTitle.trim().toLowerCase();
+        if (!group.title?.toLowerCase().includes(term)) return false;
+      }
+      if (filterDateFrom) {
+        const from = new Date(filterDateFrom);
+        const sent = group.sentAt ? new Date(group.sentAt) : null;
+        if (!sent || sent < from) return false;
+      }
+      if (filterDateTo) {
+        const to = new Date(filterDateTo);
+        to.setHours(23, 59, 59, 999);
+        const sent = group.sentAt ? new Date(group.sentAt) : null;
+        if (!sent || sent > to) return false;
+      }
+      if (filterStatus) {
+        const allReceived = group.requests.every((r) => r.status === "received");
+        const anyReceived = group.requests.some((r) => r.status === "received");
+        if (filterStatus === "received" && !allReceived) return false;
+        if (filterStatus === "partial" && !(anyReceived && !allReceived)) return false;
+        if (filterStatus === "sent" && anyReceived) return false;
+      }
+      return true;
+    });
+  }, [bidGroups, filterCompany, filterWorkType, filterTitle, filterDateFrom, filterDateTo, filterStatus]);
+
+  const activeFilterCount = [filterCompany, filterWorkType, filterTitle, filterDateFrom, filterDateTo, filterStatus].filter(Boolean).length;
+
+  function resetFilters() {
+    setFilterCompany("");
+    setFilterWorkType("");
+    setFilterTitle("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterStatus("");
+  }
+
+  function handleFilterClick(
+    col: "company" | "workType" | "title" | "date" | "status",
+    e: React.MouseEvent<HTMLButtonElement>
+  ) {
+    e.stopPropagation();
+    if (activeFilterCol === col) { setActiveFilterCol(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDropdownPos({ top: rect.bottom + 4, left: rect.left });
+    setActiveFilterCol(col);
+  }
+
+  function clearCurrentColFilter() {
+    switch (activeFilterCol) {
+      case "company":  setFilterCompany(""); break;
+      case "workType": setFilterWorkType(""); break;
+      case "title":    setFilterTitle(""); break;
+      case "date":     setFilterDateFrom(""); setFilterDateTo(""); break;
+      case "status":   setFilterStatus(""); break;
     }
   }
 
@@ -611,7 +946,7 @@ function BidRequestPageInner() {
             {/* 대공종 추가 */}
             <form onSubmit={addParent} className="flex gap-1">
               <input value={newWorkTypeName} onChange={(e) => setNewWorkTypeName(e.target.value)}
-                placeholder="새 대공종" className="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs" />
+                placeholder="대공종명 입력" className="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs" />
               <button type="submit" disabled={!newWorkTypeName.trim()}
                 className="bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded text-xs disabled:opacity-40">
                 <Plus size={12} />
@@ -657,7 +992,7 @@ function BidRequestPageInner() {
                 {/* 세부공종 추가 */}
                 <form onSubmit={addSub} className="flex gap-1">
                   <input value={newSubName} onChange={(e) => setNewSubName(e.target.value)}
-                    placeholder="새 세부공종" className="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs" />
+                    placeholder="세부공종명 입력" className="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs" />
                   <button type="submit" disabled={!newSubName.trim()}
                     className="bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded text-xs disabled:opacity-40">
                     <Plus size={12} />
@@ -707,30 +1042,57 @@ function BidRequestPageInner() {
                             <th className="text-left p-3 font-medium text-slate-600 text-xs">
                               <Phone size={12} className="inline mr-1" />연락처
                             </th>
-                            <th className="p-3 w-8"></th>
+                            <th className="p-3 w-16"></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {activeSub.contacts.map((c) => (
-                            <tr key={c.id} className={`border-t border-slate-100 transition ${selected.has(c.id) ? "bg-blue-50/50" : "hover:bg-slate-50"}`}>
-                              <td className="p-3 text-center">
-                                <input type="checkbox" checked={selected.has(c.id)}
-                                  onChange={(e) => setSelected((prev) => {
-                                    const next = new Set(prev);
-                                    e.target.checked ? next.add(c.id) : next.delete(c.id);
-                                    return next;
-                                  })} className="rounded" />
-                              </td>
-                              <td className="p-3 font-medium text-slate-800">{c.companyName}</td>
-                              <td className="p-3 text-blue-600 font-mono text-xs">{c.email}</td>
-                              <td className="p-3 text-slate-600 text-xs">{c.contactName ?? "-"}</td>
-                              <td className="p-3 text-slate-600 text-xs">{c.phone ?? "-"}</td>
-                              <td className="p-3 text-right">
-                                <button onClick={() => deleteContact(activeSub.id, c.id)}
-                                  className="text-slate-300 hover:text-rose-500"><Trash2 size={13} /></button>
-                              </td>
-                            </tr>
-                          ))}
+                          {activeSub.contacts.map((c) =>
+                            editingContactId === c.id ? (
+                              <EditContactRow
+                                key={c.id}
+                                contact={c}
+                                subId={activeSub.id}
+                                onSaved={(updated) => {
+                                  updateContact(activeSub.id, updated);
+                                  setEditingContactId(null);
+                                }}
+                                onCancel={() => setEditingContactId(null)}
+                              />
+                            ) : (
+                              <tr key={c.id} className={`border-t border-slate-100 transition ${selected.has(c.id) ? "bg-blue-50/50" : "hover:bg-slate-50"}`}>
+                                <td className="p-3 text-center">
+                                  <input type="checkbox" checked={selected.has(c.id)}
+                                    onChange={(e) => setSelected((prev) => {
+                                      const next = new Set(prev);
+                                      e.target.checked ? next.add(c.id) : next.delete(c.id);
+                                      return next;
+                                    })} className="rounded" />
+                                </td>
+                                <td className="p-3 font-medium text-slate-800">{c.companyName}</td>
+                                <td className="p-3 text-blue-600 font-mono text-xs">{c.email}</td>
+                                <td className="p-3 text-slate-600 text-xs">{c.contactName ?? "-"}</td>
+                                <td className="p-3 text-slate-600 text-xs">{c.phone ?? "-"}</td>
+                                <td className="p-3 text-right">
+                                  <div className="flex items-center gap-1.5 justify-end">
+                                    <button
+                                      onClick={() => setEditingContactId(c.id)}
+                                      className="text-slate-300 hover:text-blue-500 transition"
+                                      title="수정"
+                                    >
+                                      <Pencil size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => deleteContact(activeSub.id, c.id)}
+                                      className="text-slate-300 hover:text-rose-500 transition"
+                                      title="삭제"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -799,57 +1161,364 @@ function BidRequestPageInner() {
         </div>
       )}
 
-      {/* 발송 이력 */}
-      {bidRequests.length > 0 && (
+      {/* ── 발송 이력 (그룹화 + 필터) ── */}
+      {bidGroups.length > 0 && (
         <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
+          {/* 헤더 */}
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
             <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
               <Clock size={15} className="text-slate-400" /> 발송 이력
+              {filteredGroups.length !== bidGroups.length && (
+                <span className="text-xs font-normal text-slate-400">
+                  ({filteredGroups.length}/{bidGroups.length}건 표시)
+                </span>
+              )}
             </h2>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-rose-200 text-rose-600 hover:bg-rose-50 transition"
+              >
+                <RotateCcw size={12} />
+                필터 초기화
+                <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              </button>
+            )}
           </div>
+
+          {/* 테이블 */}
           <div className="overflow-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left p-3 font-medium text-slate-600">수신처</th>
-                  <th className="text-left p-3 font-medium text-slate-600">공종</th>
-                  <th className="text-left p-3 font-medium text-slate-600">제목</th>
-                  <th className="text-left p-3 font-medium text-slate-600">발송일시</th>
-                  <th className="text-left p-3 font-medium text-slate-600">상태</th>
-                  <th className="text-left p-3 font-medium text-slate-600">수령 견적</th>
+                  <th className="px-3 py-3 w-10 text-center" />
+                  {/* 수신처 */}
+                  <th className="px-3 py-3 text-left">
+                    <button
+                      onClick={(e) => handleFilterClick("company", e)}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${filterCompany ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                    >
+                      수신처
+                      <ChevronDown size={11} className={`transition-transform ${filterCompany ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
+                      {filterCompany && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                    </button>
+                  </th>
+                  {/* 공종 */}
+                  <th className="px-3 py-3 text-left w-28">
+                    <button
+                      onClick={(e) => handleFilterClick("workType", e)}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${filterWorkType ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                    >
+                      공종
+                      <ChevronDown size={11} className={`transition-transform ${filterWorkType ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
+                      {filterWorkType && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                    </button>
+                  </th>
+                  {/* 제목 */}
+                  <th className="px-3 py-3 text-left">
+                    <button
+                      onClick={(e) => handleFilterClick("title", e)}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${filterTitle ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                    >
+                      제목
+                      <ChevronDown size={11} className={`transition-transform ${filterTitle ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
+                      {filterTitle && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                    </button>
+                  </th>
+                  {/* 발송일시 */}
+                  <th className="px-3 py-3 text-center w-36">
+                    <button
+                      onClick={(e) => handleFilterClick("date", e)}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition mx-auto ${(filterDateFrom || filterDateTo) ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                    >
+                      발송일시
+                      <ChevronDown size={11} className={`transition-transform ${(filterDateFrom || filterDateTo) ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
+                      {(filterDateFrom || filterDateTo) && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                    </button>
+                  </th>
+                  {/* 상태 */}
+                  <th className="px-3 py-3 text-center w-32">
+                    <button
+                      onClick={(e) => handleFilterClick("status", e)}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition mx-auto ${filterStatus ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                    >
+                      상태
+                      <ChevronDown size={11} className={`transition-transform ${filterStatus ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
+                      {filterStatus && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                    </button>
+                  </th>
+                  {/* 첨부파일 */}
+                  <th className="px-3 py-3 text-center w-44 text-xs font-medium text-slate-600">첨부파일</th>
                 </tr>
               </thead>
               <tbody>
-                {bidRequests.map((r, idx) => (
-                  <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
-                    <td className="p-3 font-medium text-slate-800">{r.companyName ?? "-"}</td>
-                    <td className="p-3 text-slate-600 text-xs">{r.workType?.name ?? "-"}</td>
-                    <td className="p-3 text-slate-600 text-xs">{r.title ?? "-"}</td>
-                    <td className="p-3 text-xs font-mono text-slate-500">{fmtDate(r.sentAt)}</td>
-                    <td className="p-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        r.status === "sent" ? "bg-blue-100 text-blue-700" :
-                        r.status === "received" ? "bg-emerald-100 text-emerald-700" :
-                        "bg-slate-100 text-slate-600"
-                      }`}>
-                        {r.status === "sent" ? "발송완료" : r.status === "received" ? "수령완료" : r.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-xs text-slate-500">
-                      {r.receivedBids.length > 0 ? (
-                        `${r.receivedBids.length}건 수령`
-                      ) : idx === 0 ? (
-                        <SampleUploadCell bidRequestId={r.id} onUploaded={loadAll} />
-                      ) : (
-                        <span className="text-slate-400">대기 중</span>
-                      )}
+                {filteredGroups.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400 text-xs">
+                      조건에 맞는 이력이 없습니다.
                     </td>
                   </tr>
-                ))}
+                )}
+                {filteredGroups.map((group) => {
+                  const isMulti = group.requests.length > 1;
+                  const isExpanded = expandedGroups.has(group.key);
+                  const first = group.requests[0];
+                  const totalReceived = group.requests.reduce((a, r) => a + r.receivedBids.length, 0);
+                  const allReceived = group.requests.every((r) => r.status === "received");
+                  const someReceived = group.requests.some((r) => r.status === "received");
+                  // 그룹 전체 수령 견적 목록
+                  const allBids = group.requests.flatMap((r) => r.receivedBids);
+
+                  return (
+                    <Fragment key={group.key}>
+                      {/* 그룹 헤더 행 */}
+                      <tr
+                        className={`border-t border-slate-100 ${isMulti ? "cursor-pointer select-none" : ""} hover:bg-slate-50 transition`}
+                        onClick={isMulti ? () => toggleGroup(group.key) : undefined}
+                      >
+                        <td className="px-3 py-3 text-center align-middle">
+                          {isMulti && (
+                            <ChevronDown
+                              size={14}
+                              className={`text-slate-400 transition-transform duration-150 mx-auto ${isExpanded ? "rotate-180" : ""}`}
+                            />
+                          )}
+                        </td>
+                        <td className="px-3 py-3 align-middle font-medium text-slate-800 text-sm">
+                          {isMulti ? (
+                            <span className="flex items-center gap-2">
+                              {first.companyName ?? "-"}
+                              <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                외 {group.requests.length - 1}개사
+                              </span>
+                            </span>
+                          ) : (
+                            first.companyName ?? "-"
+                          )}
+                        </td>
+                        <td className="px-3 py-3 align-middle text-slate-600 text-xs">{group.workType?.name ?? "-"}</td>
+                        <td className="px-3 py-3 align-middle text-slate-600 text-xs">{group.title ?? "-"}</td>
+                        <td className="px-3 py-3 align-middle text-center text-xs font-mono text-slate-500">{fmtDate(group.sentAt)}</td>
+                        <td className="px-3 py-3 align-middle text-center">
+                          <div className="inline-flex flex-col items-center gap-1">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              allReceived
+                                ? "bg-emerald-100 text-emerald-700"
+                                : someReceived
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-blue-100 text-blue-700"
+                            }`}>
+                              {allReceived ? "수령완료" : someReceived ? "일부수령" : "발송완료"}
+                            </span>
+                            <div className="text-[11px]">
+                              {totalReceived > 0 ? (
+                                <span className="text-emerald-600 font-medium">{totalReceived}건 수령</span>
+                              ) : (
+                                <span className="text-slate-400">대기 중</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 align-middle text-center">
+                          <div className="inline-flex flex-col items-center gap-1.5">
+                            {allBids.map((bid) => (
+                              <span
+                                key={bid.id}
+                                className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded max-w-[160px] truncate cursor-pointer hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition group"
+                                title={`${bid.fileName} — 더블클릭으로 미리보기`}
+                                onDoubleClick={(e) => { e.stopPropagation(); setPreviewBid(bid); }}
+                              >
+                                <FileText size={10} className="text-blue-400 shrink-0 group-hover:text-blue-500" />
+                                {bid.fileName}
+                                <Eye size={9} className="text-slate-300 shrink-0 group-hover:text-blue-400 ml-0.5" />
+                              </span>
+                            ))}
+                            {!isMulti && allBids.length === 0 && (
+                              <SampleUploadCell bidRequestId={first.id} onUploaded={loadAll} />
+                            )}
+                            {isMulti && allBids.length === 0 && (
+                              <span className="text-slate-300 text-xs">-</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {isMulti && isExpanded && group.requests.map((r) => {
+                        return (
+                          <tr key={`sub-${r.id}`} className="border-t border-slate-50 bg-slate-50/70">
+                            <td className="px-3 py-2.5 align-middle" />
+                            <td className="px-3 py-2.5 align-middle pl-8">
+                              <span className="flex items-center gap-1.5 text-xs text-slate-700">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+                                {r.companyName ?? "-"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 align-middle text-xs text-slate-400">{r.workType?.name ?? "-"}</td>
+                            <td className="px-3 py-2.5 align-middle text-xs text-slate-400">{r.title ?? "-"}</td>
+                            <td className="px-3 py-2.5 align-middle text-center text-xs font-mono text-slate-400">{fmtDate(r.sentAt)}</td>
+                            <td className="px-3 py-2.5 align-middle text-center">
+                              <div className="inline-flex flex-col items-center gap-1">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  r.status === "received"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {r.status === "received" ? "수령완료" : "발송완료"}
+                                </span>
+                                <div className="text-[11px]">
+                                  {r.receivedBids.length > 0 ? (
+                                    <span className="text-emerald-600 font-medium">{r.receivedBids.length}건 수령</span>
+                                  ) : (
+                                    <span className="text-slate-400">대기 중</span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 align-middle text-center">
+                              <div className="inline-flex flex-col items-center gap-1.5">
+                                {r.receivedBids.map((bid) => (
+                                  <span
+                                    key={bid.id}
+                                    className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded max-w-[160px] truncate cursor-pointer hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition group"
+                                    title={`${bid.fileName} — 더블클릭으로 미리보기`}
+                                    onDoubleClick={(e) => { e.stopPropagation(); setPreviewBid(bid); }}
+                                  >
+                                    <FileText size={10} className="text-blue-400 shrink-0 group-hover:text-blue-500" />
+                                    {bid.fileName}
+                                    <Eye size={9} className="text-slate-300 shrink-0 group-hover:text-blue-400 ml-0.5" />
+                                  </span>
+                                ))}
+                                {r.receivedBids.length === 0 && (
+                                  <SampleUploadCell bidRequestId={r.id} onUploaded={loadAll} />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </section>
+      )}
+
+      {/* ── 엑셀 스타일 필터 드롭다운 ── */}
+      {activeFilterCol && (
+        <>
+          {/* 배경 오버레이 - 외부 클릭 시 닫기 */}
+          <div className="fixed inset-0 z-[99]" onClick={() => setActiveFilterCol(null)} />
+
+          {/* 드롭다운 패널 */}
+          <div
+            className="fixed z-[100] bg-white rounded-lg border border-slate-200 shadow-2xl overflow-hidden"
+            style={{ top: dropdownPos.top, left: dropdownPos.left, minWidth: 220 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 패널 헤더 */}
+            <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
+              <SlidersHorizontal size={11} className="text-slate-500" />
+              <span className="text-xs font-semibold text-slate-600">
+                {{ company: "수신처", workType: "공종", title: "제목", date: "발송일시", status: "상태" }[activeFilterCol]}
+                {" "}필터
+              </span>
+            </div>
+
+            {/* 텍스트 검색 (수신처 / 공종 / 제목) */}
+            {(activeFilterCol === "company" || activeFilterCol === "workType" || activeFilterCol === "title") && (
+              <div className="p-3">
+                <input
+                  autoFocus
+                  type="text"
+                  value={activeFilterCol === "company" ? filterCompany : activeFilterCol === "workType" ? filterWorkType : filterTitle}
+                  onChange={(e) => {
+                    if (activeFilterCol === "company") setFilterCompany(e.target.value);
+                    else if (activeFilterCol === "workType") setFilterWorkType(e.target.value);
+                    else setFilterTitle(e.target.value);
+                  }}
+                  placeholder={activeFilterCol === "company" ? "업체명 검색..." : activeFilterCol === "workType" ? "공종명 검색..." : "제목 검색..."}
+                  className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                  onKeyDown={(e) => { if (e.key === "Enter") setActiveFilterCol(null); }}
+                />
+                <p className="text-[11px] text-slate-400 mt-1.5">Enter 또는 확인 버튼으로 적용</p>
+              </div>
+            )}
+
+            {/* 날짜 범위 (발송일시) */}
+            {activeFilterCol === "date" && (
+              <div className="p-3 space-y-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 block mb-1">시작일</label>
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => setFilterDateFrom(e.target.value)}
+                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 block mb-1">종료일</label>
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 상태 선택 */}
+            {activeFilterCol === "status" && (
+              <div className="py-1.5">
+                {[
+                  { value: "", label: "전체", icon: null },
+                  { value: "sent", label: "발송완료", color: "bg-blue-100 text-blue-700" },
+                  { value: "partial", label: "일부수령", color: "bg-amber-100 text-amber-700" },
+                  { value: "received", label: "수령완료", color: "bg-emerald-100 text-emerald-700" },
+                ].map(({ value, label, color }) => (
+                  <label
+                    key={value}
+                    className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition ${filterStatus === value ? "bg-blue-50" : "hover:bg-slate-50"}`}
+                  >
+                    <input
+                      type="radio"
+                      name="bidFilterStatus"
+                      checked={filterStatus === value}
+                      onChange={() => setFilterStatus(value)}
+                      className="text-blue-600 cursor-pointer"
+                    />
+                    {color ? (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>{label}</span>
+                    ) : (
+                      <span className="text-xs text-slate-600">{label}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {/* 하단 버튼 */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-t border-slate-100 bg-slate-50/80">
+              <button
+                onClick={clearCurrentColFilter}
+                className="text-xs text-rose-500 hover:text-rose-700 transition flex items-center gap-1"
+              >
+                <RotateCcw size={11} /> 초기화
+              </button>
+              <button
+                onClick={() => setActiveFilterCol(null)}
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded transition font-medium"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {modal === "confirm" && (
@@ -861,6 +1530,9 @@ function BidRequestPageInner() {
       )}
       {(modal === "sent" || modal === "cancelled") && (
         <ResultModal type={modal} onClose={() => setModal(null)} />
+      )}
+      {previewBid && (
+        <FilePreviewModal bid={previewBid} onClose={() => setPreviewBid(null)} />
       )}
     </div>
   );

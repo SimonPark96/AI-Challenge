@@ -6,6 +6,7 @@ import {
   isMatchExcluded,
   matchToMarketPrice,
 } from "@/lib/quote/match";
+import { matchItemsToConfidential } from "@/lib/quote/confidential-match";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,7 @@ interface AnalyzeBody {
   fileName?: string | null;
   fileSize?: number | null;
   priceSummaryId?: number | null;
+  selectedCompetitorBidIds?: number[];
 }
 
 function num(v: string | undefined | null): number | null {
@@ -81,14 +83,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const matches = await Promise.all(
-      validItems.map((it) => {
-        const name = it.itemName.trim();
-        // "장비비" 등은 매칭 대상 아님 — 빈 결과로 즉시 반환.
-        if (isMatchExcluded(name)) return Promise.resolve(EMPTY_MATCH);
-        return matchToMarketPrice(name, strOrNull(it.spec));
-      })
-    );
+    const confMatchItems = validItems.map((it, idx) => ({
+      rowIndex: idx,
+      itemName: it.itemName.trim(),
+      spec: strOrNull(it.spec),
+      unitPrice: num(it.unitPrice),
+    }));
+
+    const [matches, confMatches] = await Promise.all([
+      Promise.all(
+        validItems.map((it) => {
+          const name = it.itemName.trim();
+          if (isMatchExcluded(name)) return Promise.resolve(EMPTY_MATCH);
+          return matchToMarketPrice(name, strOrNull(it.spec));
+        })
+      ),
+      matchItemsToConfidential(confMatchItems).catch(() => [] as Awaited<ReturnType<typeof matchItemsToConfidential>>),
+    ]);
+
+    const confMatchMap = new Map(confMatches.map((m) => [m.rowIndex, m]));
 
     const itemsData: Prisma.QuotationItemUncheckedCreateWithoutQuotationInput[] =
       validItems.map((it, idx) => {
@@ -107,6 +120,9 @@ export async function POST(req: Request) {
             ? ((unitPrice - m.marketPrice) / m.marketPrice) * 100
             : null;
 
+        const cm = confMatchMap.get(idx);
+        const hasConfMatch = cm !== undefined && cm.confId !== null;
+
         return {
           rowIndex: idx,
           itemName,
@@ -122,8 +138,50 @@ export async function POST(req: Request) {
           marketPrice: m.marketPrice,
           marketRegion: m.marketRegion,
           deviationPct,
+          confPriceId: hasConfMatch ? cm.confId : null,
+          confConfidence: hasConfMatch ? cm.confidence : null,
+          confUnitPrice: hasConfMatch ? cm.confTotalCost : null,
+          confDeviationPct: hasConfMatch ? cm.deviationPct : null,
         };
       });
+
+    // 선택된 경쟁 견적 합계 조회 (최대 3개)
+    const selectedBidIds = Array.isArray(body.selectedCompetitorBidIds)
+      ? body.selectedCompetitorBidIds
+          .map(Number)
+          .filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+
+    interface CompetitorBidCol {
+      id: number;
+      companyName: string | null;
+      materialCost: number | null;
+      laborCost: number | null;
+      expenseCost: number | null;
+      totalCost: number | null;
+    }
+
+    let competitorBids: CompetitorBidCol[] = [];
+    if (selectedBidIds.length > 0) {
+      const fetched = await Promise.all(
+        selectedBidIds.map((id) =>
+          prisma.receivedBid.findUnique({ where: { id }, include: { items: true } })
+        )
+      );
+      competitorBids = fetched
+        .filter((b): b is NonNullable<typeof b> => b !== null)
+        .map((b) => {
+          const cost = b.items[0] ?? null;
+          return {
+            id: b.id,
+            companyName: b.companyName,
+            materialCost: cost?.materialCost ?? null,
+            laborCost: cost?.laborCost ?? null,
+            expenseCost: cost?.expenseCost ?? null,
+            totalCost: cost?.totalCost ?? null,
+          };
+        });
+    }
 
     const meta: Prisma.InputJsonValue = {
       workType: body.form.workType ?? "",
@@ -139,6 +197,7 @@ export async function POST(req: Request) {
       matchedCount: matches.filter(
         (m) => m.matchedPriceId !== null || m.matchedWageId !== null
       ).length,
+      competitorBids: competitorBids as unknown as Prisma.InputJsonValue,
     };
 
     const summaryId =

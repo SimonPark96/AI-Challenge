@@ -108,24 +108,42 @@ export default async function ReviewByIdPage({
       ? confMatched.reduce((a, it) => a + (it.confUnitPrice ?? 0) * (it.quantity ?? 1), 0)
       : null;
 
-  // 경쟁 견적 단가: 수령된 견적별 (매칭 항목 단가 × 원본 수량) 합계 중 최저가
-  const origQtyMap = new Map(quotation.items.map((it) => [it.id, it.quantity ?? 1]));
-  const receivedTotals: number[] = [];
-  for (const br of bidRequests) {
-    for (const rb of br.receivedBids) {
-      let sum = 0;
-      let matched = false;
-      for (const ri of rb.items) {
-        if (ri.origItemId !== null && ri.totalCost !== null) {
-          sum += ri.totalCost * (origQtyMap.get(ri.origItemId) ?? 1);
-          matched = true;
+  // 경쟁 견적 단가: analyze 시 선택된 견적 배열 우선, 없으면 수령된 최저가 폴백
+  interface CompetitorBidCol {
+    id: number;
+    companyName: string | null;
+    totalCost: number | null;
+    materialCost: number | null;
+    laborCost: number | null;
+    expenseCost: number | null;
+  }
+
+  let competitorBids: CompetitorBidCol[] = [];
+
+  const metaCompetitorBids = Array.isArray(meta?.competitorBids)
+    ? (meta.competitorBids as CompetitorBidCol[])
+    : [];
+
+  if (metaCompetitorBids.length > 0) {
+    competitorBids = metaCompetitorBids;
+  } else {
+    // 구버전 데이터: meta.competitorTotal 단일값 또는 수령된 최저가
+    const legacyTotal = num(meta?.competitorTotal);
+    if (legacyTotal !== null) {
+      competitorBids = [{ id: 0, companyName: null, totalCost: legacyTotal, materialCost: null, laborCost: null, expenseCost: null }];
+    } else {
+      const receivedTotals: number[] = [];
+      for (const br of bidRequests) {
+        for (const rb of br.receivedBids) {
+          const sum = rb.items.reduce((a, ri) => a + (ri.totalCost ?? 0), 0);
+          if (sum > 0) receivedTotals.push(sum);
         }
       }
-      if (matched) receivedTotals.push(sum);
+      if (receivedTotals.length > 0) {
+        competitorBids = [{ id: 0, companyName: null, totalCost: Math.min(...receivedTotals), materialCost: null, laborCost: null, expenseCost: null }];
+      }
     }
   }
-  const competitorTotal = receivedTotals.length > 0 ? Math.min(...receivedTotals) : null;
-  const competitorBidCount = receivedTotals.length;
 
   // AI 매칭 단가 합계: 각 라인의 시장단가 × 수량 합산 (매칭된 행만)
   const itemMatched = quotation.items.filter((it) => it.marketPrice != null);
@@ -195,8 +213,7 @@ export default async function ReviewByIdPage({
         }
         confTotal={confTotal}
         confMatchedCount={confMatched.length}
-        competitorTotal={competitorTotal}
-        competitorBidCount={competitorBidCount}
+        competitorBids={competitorBids}
         itemMarketTotal={itemMarketTotal}
         itemMarketBreakdown={itemMarketBreakdown}
         itemTotalCount={quotation.items.length}

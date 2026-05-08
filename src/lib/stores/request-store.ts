@@ -111,6 +111,7 @@ interface RequestState {
   };
   submitting: boolean;
   submitError: string | null;
+  selectedCompetitorBidIds: number[];
 
   setFile: (file: File | null) => void;
   uploadAndExtract: () => Promise<void>;
@@ -129,6 +130,7 @@ interface RequestState {
     error?: string | null;
   }) => void;
   setSelectedSummary: (s: SelectedSummary | null) => void;
+  toggleCompetitorBid: (id: number) => void;
   resetForm: () => void;
   submit: () => Promise<{ quotationId: number } | null>;
 }
@@ -166,6 +168,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   },
   submitting: false,
   submitError: null,
+  selectedCompetitorBidIds: [],
 
   setFile: (file) => {
     set({
@@ -339,6 +342,17 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     set({ selectedSummary: s });
   },
 
+  toggleCompetitorBid: (id) => {
+    set((s) => {
+      const ids = s.selectedCompetitorBidIds;
+      if (ids.includes(id)) {
+        return { selectedCompetitorBidIds: ids.filter((x) => x !== id) };
+      }
+      if (ids.length >= 3) return {};
+      return { selectedCompetitorBidIds: [...ids, id] };
+    });
+  },
+
   resetForm: () => {
     set({
       file: null,
@@ -353,11 +367,12 @@ export const useRequestStore = create<RequestState>((set, get) => ({
         error: null,
       },
       submitError: null,
+      selectedCompetitorBidIds: [],
     });
   },
 
   submit: async () => {
-    const { form, extraction, selectedSummary } = get();
+    const { form, extraction, selectedSummary, selectedCompetitorBidIds } = get();
     const validItems = form.items.filter((it) => it.itemName.trim() !== "");
     if (validItems.length === 0) {
       set({ submitError: "최소 1개의 품목이 필요합니다." });
@@ -370,6 +385,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
         fileName: extraction?.fileName ?? null,
         fileSize: extraction?.fileSize ?? null,
         priceSummaryId: selectedSummary?.id ?? null,
+        selectedCompetitorBidIds: selectedCompetitorBidIds,
       };
       const res = await fetch("/api/quote/analyze", {
         method: "POST",
