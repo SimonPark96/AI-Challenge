@@ -4,6 +4,7 @@ import {
   cosineSimilarity,
   embedTexts,
 } from "../openai/embed";
+import { specSimilarity } from "./normalize";
 
 const MAX_CANDIDATES = 2000;
 const DETERMINISTIC_WEIGHT = 0.6;
@@ -171,7 +172,7 @@ function acronymBonus(a: string, b: string): number {
 }
 
 function deterministicScore(a: string, sa: string | null, b: string, sb: string | null): number {
-  return stringSimilarity(a, b) * 0.8 + (sa && sb ? stringSimilarity(sa, sb) * 0.2 : 0);
+  return stringSimilarity(a, b) * 0.7 + (sa && sb ? specSimilarity(sa, sb) * 0.3 : 0);
 }
 
 function stringSimilarity(a: string, b: string): number {

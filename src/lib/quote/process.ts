@@ -39,13 +39,31 @@ export async function processQuote(
       parsed.items.map(async (item, i) => {
         const match = isMatchExcluded(item.itemName)
           ? EMPTY_MATCH
-          : await matchToMarketPrice(item.itemName, item.spec);
+          : await matchToMarketPrice(item.itemName, item.spec, {
+              includeDebug: true,
+            });
         const deviationPct =
           item.unitPrice !== null &&
           match.marketPrice !== null &&
           match.marketPrice !== 0
             ? ((item.unitPrice - match.marketPrice) / match.marketPrice) * 100
             : null;
+        // 챗봇이 "왜 이 자재로 매칭됐어?" 에 답할 수 있도록 top 3 후보를 캐시.
+        // 임베딩·점수 객체 전체는 무거우니 필요한 필드만 추려 저장.
+        const matchDebug = match.topCandidates
+          ? match.topCandidates.slice(0, 3).map((c) => ({
+              source: c.source,
+              itemName: c.itemName,
+              spec: c.spec,
+              price: c.price,
+              region: c.region,
+              cosine: Number(c.cosine.toFixed(3)),
+              deterministic: Number(c.deterministic.toFixed(3)),
+              acronym: Number(c.acronym.toFixed(3)),
+              combined: Number(c.combined.toFixed(3)),
+              method: c.method,
+            }))
+          : null;
         return {
           rowIndex: i,
           itemName: item.itemName,
@@ -61,6 +79,7 @@ export async function processQuote(
           marketPrice: match.marketPrice,
           marketRegion: match.marketRegion,
           deviationPct,
+          matchDebug: matchDebug as Prisma.InputJsonValue | undefined,
         };
       })
     );

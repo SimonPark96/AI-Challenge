@@ -7,6 +7,7 @@ import { QuoteSummary } from "@/components/QuoteSummary";
 import { ReviewDecisionCard } from "@/components/ReviewDecisionCard";
 import { NewPriceReviewForm } from "@/components/NewPriceReviewForm";
 import { ConfirmAndOrderSection } from "@/components/ConfirmAndOrderSection";
+import { AiChatBot } from "@/components/chat/AiChatBot";
 
 export const dynamic = "force-dynamic";
 
@@ -161,6 +162,8 @@ export default async function ConfirmByIdPage({
           검토 요청 목록으로 이동
         </Link>
       </div>
+
+      <AiChatBot mode="review" quotationId={qid} />
     </div>
   );
 }

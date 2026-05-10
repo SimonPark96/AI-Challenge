@@ -4,6 +4,7 @@ import {
   cosineSimilarity,
   embedText,
 } from "../openai/embed";
+import { specSimilarity } from "./normalize";
 
 const WAGE_CATE_LABELS: Record<string, string> = {
   "701111": "공사부문",
@@ -363,9 +364,10 @@ function acronymBonus(a: string, b: string): number {
 
 /**
  * Deterministic 유사도 (0..1).
- * - 공백 정규화로 "AL몰드"와 "AL 몰드"를 같게 처리
- * - itemName 가중치 0.8, spec 가중치 0.2 (이름이 자재 식별자, spec은 보조)
- * - 부분 매치는 bigram Jaccard 로 평가하여 "AL" 같은 짧은 토큰의 과대평가 방지
+ * - 이름은 부분포함 보너스 + bigram Jaccard
+ * - 규격은 normalizeSpec(`*`/`×`/T/㎜ 통일) + numericSimilarity 로 숫자 일치 강하게 평가
+ * - itemName 가중치 0.7, spec 가중치 0.3 — 건설 자재는 같은 이름 다른 규격이 흔해
+ *   spec 비중을 0.2 → 0.3 으로 상향
  */
 function deterministicScore(
   itemA: string,
@@ -373,9 +375,8 @@ function deterministicScore(
   itemB: string,
   specB: string | null
 ): number {
-  const nameScore = stringSimilarity(itemA, itemB) * 0.8;
-  const specScore =
-    specA && specB ? stringSimilarity(specA, specB) * 0.2 : 0;
+  const nameScore = stringSimilarity(itemA, itemB) * 0.7;
+  const specScore = specA && specB ? specSimilarity(specA, specB) * 0.3 : 0;
   return nameScore + specScore;
 }
 

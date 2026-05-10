@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   LayoutGrid,
   FileSearch,
@@ -13,28 +14,17 @@ import {
   BarChart2,
   FileText,
   Sparkles,
+  ClipboardList,
 } from "lucide-react";
-
-const REVIEW_PATHS = [
-  "/request",
-  "/analyze",
-  "/review",
-  "/confirm",
-  "/price-review",
-  "/bid-request",
-];
-
-function isOnReviewPage(pathname: string) {
-  return REVIEW_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-}
 
 const DATA_SUB_ITEMS: {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
+  /** 정확 일치만 active 로 처리 (기본은 prefix 까지 active) */
+  exact?: boolean;
 }[] = [
+  { href: "/request", label: "종합 검토", icon: ClipboardList, exact: true },
   { href: "/price-review/db", label: "DB단가 견적", icon: DbIcon },
   { href: "/price-review/actual", label: "실적단가 견적", icon: BarChart2 },
   { href: "/bid-request", label: "비교 견적 요청", icon: Send },
@@ -59,7 +49,7 @@ const CURRENT_USER = {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const onReview = isOnReviewPage(pathname);
+  const [reviewExpanded, setReviewExpanded] = useState(true);
 
   const reviewActive =
     pathname === "/request" ||
@@ -118,16 +108,27 @@ export function Sidebar() {
           >
             <FileSearch size={16} />
             <span className="flex-1">단가 검토 요청</span>
-            <ChevronDown
-              size={14}
-              className={`transition-transform duration-200 ${
-                onReview ? "rotate-0" : "-rotate-90"
-              }`}
-            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setReviewExpanded((v) => !v);
+              }}
+              aria-label={reviewExpanded ? "하위 메뉴 접기" : "하위 메뉴 펼치기"}
+              aria-expanded={reviewExpanded}
+              className="-mr-1 p-1 rounded hover:bg-black/10"
+            >
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-200 ${
+                  reviewExpanded ? "rotate-0" : "-rotate-90"
+                }`}
+              />
+            </button>
           </Link>
 
-          {/* 하위 메뉴 - 단가 검토 관련 페이지에서만 표시 */}
-          {onReview && (
+          {reviewExpanded && (
             <div className="mt-0.5 ml-4 pl-4 border-l border-white/20 space-y-0.5">
               {DATA_SUB_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -151,7 +152,7 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* 나머지 메뉴 */}
+        {/* DB 관리 등 */}
         {MENU.filter((m) => m.href !== "/dashboard").map((m) => {
           const active =
             pathname === m.href || pathname.startsWith(m.href + "/");

@@ -13,8 +13,8 @@ const SOURCE_LABELS: Record<Source, string> = {
 };
 
 export function DbScrape() {
-  const [source, setSource] = useState<Source>("cmpi");
-  const [keyword, setKeyword] = useState("폴리카보네이트 복층판");
+  const [source, setSource] = useState<Source>("kpi");
+  const [keyword, setKeyword] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<unknown>(null);
 

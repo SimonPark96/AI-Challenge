@@ -485,7 +485,7 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
     <section className="space-y-4">
       <div>
         <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-          <Lock size={18} className="text-rose-500" /> 사내 DB 단가 검토 결과
+          <Lock size={18} className="text-slate-500" /> 사내 DB 단가 검토 결과
         </h2>
         <p className="text-xs text-slate-500 mt-1">
           협력사 견적 항목을 사내 DB 단가와 항목별로 비교합니다.
@@ -503,10 +503,10 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
                 cls: "text-slate-800",
               },
               {
-                label: "기밀 DB단가 합계",
+                label: "사내 DB 단가 합계",
                 val: confMatchedTotal,
                 badge: undefined,
-                cls: "text-rose-700 font-semibold",
+                cls: "text-slate-800 font-semibold",
               },
               {
                 label: "편차",
@@ -545,9 +545,9 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
           사내 DB와 매칭된 항목이 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-rose-200">
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-sm">
-            <thead className="bg-rose-50 sticky top-0">
+            <thead className="bg-slate-50 sticky top-0">
               <tr>
                 <th className="text-left p-2 font-medium text-slate-600 text-xs">
                   항목명
@@ -561,8 +561,8 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
                 <th className="text-right p-2 font-medium text-slate-600 text-xs">
                   협력사 단가
                 </th>
-                <th className="text-right p-2 font-medium text-rose-600 text-xs">
-                  기밀 DB 단가
+                <th className="text-right p-2 font-medium text-slate-600 text-xs">
+                  사내 DB 단가
                 </th>
                 <th className="text-right p-2 font-medium text-slate-600 text-xs">
                   편차
@@ -584,7 +584,7 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
                 return (
                   <tr
                     key={it.id}
-                    className="border-t border-slate-100 hover:bg-rose-50/30"
+                    className="border-t border-slate-100 hover:bg-slate-50"
                   >
                     <td
                       className="p-2 text-slate-800 font-medium max-w-[180px] truncate"
@@ -601,7 +601,7 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
                     <td className="p-2 text-right font-mono text-slate-700">
                       {fmt(it.unitPrice)}
                     </td>
-                    <td className="p-2 text-right font-mono font-semibold text-rose-700">
+                    <td className="p-2 text-right font-mono font-semibold text-slate-800">
                       {fmt(it.confUnitPrice)}
                     </td>
                     <td className="p-2 text-right">
@@ -619,7 +619,7 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-rose-200 bg-rose-50/60">
+              <tr className="border-t-2 border-slate-300 bg-slate-50">
                 <td
                   colSpan={3}
                   className="p-2 text-xs font-semibold text-slate-600"
@@ -629,7 +629,7 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
                 <td className="p-2 text-right font-mono font-bold text-slate-800">
                   {fmt(partnerMatchedTotal)}
                 </td>
-                <td className="p-2 text-right font-mono font-bold text-rose-700">
+                <td className="p-2 text-right font-mono font-bold text-slate-800">
                   {fmt(confMatchedTotal)}
                 </td>
                 <td className="p-2 text-right">
@@ -639,23 +639,6 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
               </tr>
             </tfoot>
           </table>
-          <div className="flex flex-wrap gap-4 text-xs text-slate-500 px-3 py-2 bg-rose-50/40 border-t border-rose-100">
-            <span className="inline-flex items-center gap-1">
-              <TrendingUp size={11} className="text-rose-500" />
-              협력사 &gt; DB
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <TrendingDown size={11} className="text-blue-500" />
-              협력사 &lt; DB
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Minus size={11} className="text-emerald-500" />
-              ±5% 이내
-            </span>
-            <span className="ml-auto text-slate-400">
-              {confItems.length}개 항목 중 {matched.length}개 매칭
-            </span>
-          </div>
         </div>
       )}
     </section>

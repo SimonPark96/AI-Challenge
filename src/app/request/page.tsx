@@ -7,6 +7,7 @@ import { StepIndicator } from "@/components/StepIndicator";
 import { QuoteUpload } from "@/components/QuoteUpload";
 import { RequestFormSection } from "@/components/RequestForm";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { AiChatBot } from "@/components/chat/AiChatBot";
 import { useRequestStore } from "@/lib/stores/request-store";
 
 export default function RequestPage() {
@@ -112,6 +113,8 @@ export default function RequestPage() {
         title="AI가 분석 중이에요"
         description="입력하신 항목들을 시장단가와 매칭하고 편차를 계산합니다."
       />
+
+      <AiChatBot mode="search" />
     </div>
   );
 }

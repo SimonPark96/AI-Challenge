@@ -183,6 +183,10 @@ model QuotationItem {
   confUnitPrice    Float?  // 매칭된 기밀 단가계
   confDeviationPct Float?  // (unitPrice - confUnitPrice) / confUnitPrice * 100
 
+  // 매칭 진단(top 3 후보 + 점수 분해). 챗봇이 "왜 매칭됐어?" 답할 때 사용.
+  // MatchCandidateDebug[] subset 형식 — 자세한 스키마는 src/lib/quote/match.ts 참조.
+  matchDebug Json?
+
   quotation    Quotation          @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   matchedPrice PriceHistory?      @relation(fields: [matchedPriceId], references: [id], onDelete: SetNull)
   matchedWage  WageHistory?       @relation(fields: [matchedWageId], references: [id], onDelete: SetNull)

@@ -53,7 +53,18 @@ const SYSTEM_INSTRUCTIONS = `당신은 건축 자재/노임 단가 검토 어시
 - 견적/단가 검토와 무관한 잡담·다른 도메인 질문엔 정중히 거절하고 본 주제로 유도.
 
 행 번호는 [라인 아이템] 블록의 앞 두 자리(01, 02...) 그대로 사용.
-매칭 출처는 source(KPI/KPRC/CMPI/KPI-WAGE) + 카테고리/지역 + 수집일 + sourceUrl 기준으로 답변.`;
+매칭 출처는 source(KPI/KPRC/CMPI/KPI-WAGE) + 카테고리/지역 + 수집일 + sourceUrl 기준으로 답변.
+
+【매칭 후보·점수 해석】 — "왜 이 자재로 매칭됐어?" 류 질문 응답법
+각 라인의 "후보:" 줄에는 상위 3개 후보가 [선택 ★] 표시와 함께 점수 분해와 같이 나옵니다.
+점수 의미를 사용자에게 풀어서 설명하세요(0..1 스케일):
+  - cos = 임베딩 의미 유사도. 표기가 달라도 의미가 가까우면 높음(예: "이형철근"↔"D철근").
+  - det = 이름 표면 + 규격 숫자 일치. 글자/숫자가 똑같이 겹칠수록 높음.
+  - acro = 영문 약자(AL, ST, PB 등) 보너스. 짧은 약자 매칭 보강용.
+  - sum = combined. 위 셋의 가중합으로 랭킹에 사용된 최종 점수.
+"왜 1등이 됐어?" 질문엔 1등과 2등의 점수 차이를 짚어 설명("cos 가 비슷하지만 det 에서 +0.15 앞섰다" 식).
+신뢰도 낮은 라인엔 어느 점수가 발목을 잡았는지(예: "이름은 비슷하지만 규격 숫자가 달라 det 가 낮다") 짚으세요.
+후보가 비어 있으면("후보 없음") 이전 버전에서 처리된 라인이라 진단 정보가 없음을 안내하세요.`;
 
 export interface BuildChatContextResult {
   systemPrompt: string;
@@ -160,7 +171,40 @@ export async function buildChatContext(
       detail.push(`신뢰도=${(it.matchedConfidence * 100).toFixed(0)}%`);
     }
 
-    return [head.join(" "), `   → ${detail.join(" / ")}`].join("\n");
+    const lines = [head.join(" "), `   → ${detail.join(" / ")}`];
+
+    // 매칭 후보 진단 — 챗봇이 "왜 매칭됐어?" 답변에 사용
+    const debug = it.matchDebug;
+    if (Array.isArray(debug) && debug.length > 0) {
+      const chosenSource = it.matchedSource;
+      const chosenItem =
+        it.matchedSource === "wage"
+          ? it.matchedWage?.jobName
+          : it.matchedPrice?.itemName;
+      const chosenSpec =
+        it.matchedSource === "wage" ? null : it.matchedPrice?.spec ?? null;
+
+      const candLines = debug.map((c, i) => {
+        const cand = c as Record<string, unknown>;
+        const isChosen =
+          cand.source === chosenSource &&
+          cand.itemName === chosenItem &&
+          (cand.spec ?? null) === (chosenSpec ?? null);
+        const star = isChosen ? " ★" : "";
+        const src =
+          typeof cand.source === "string"
+            ? `[${cand.source.toUpperCase()}]`
+            : "";
+        const specStr = cand.spec ? ` (${cand.spec})` : "";
+        return `      ${i + 1}) ${cand.itemName}${specStr} ${src} cos=${cand.cosine} det=${cand.deterministic} acro=${cand.acronym} sum=${cand.combined}${star}`;
+      });
+      lines.push("   후보:");
+      lines.push(...candLines);
+    } else if (it.matchedSource) {
+      lines.push("   후보: 없음 (이전 버전 처리분)");
+    }
+
+    return lines.join("\n");
   });
 
   // 합계

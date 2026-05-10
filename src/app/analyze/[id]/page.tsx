@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { StepIndicator } from "@/components/StepIndicator";
 import { AnalyzePageClient } from "@/components/AnalyzePageClient";
+import { AiChatBot } from "@/components/chat/AiChatBot";
 
 export const dynamic = "force-dynamic";
 
@@ -220,6 +221,8 @@ export default async function AnalyzeByIdPage({
           <ChevronLeft size={16} /> 다시 요청
         </Link>
       </div>
+
+      <AiChatBot mode="review" quotationId={qid} />
     </div>
   );
 }

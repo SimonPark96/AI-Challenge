@@ -5,6 +5,7 @@ import {
   cosineSimilarity,
   embedText,
 } from "@/lib/openai/embed";
+import { specSimilarity, stringSimilarity } from "@/lib/quote/normalize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -164,82 +165,4 @@ function deterministicScore(
   const nameScore = stringSimilarity(itemA, itemB) * 0.6;
   const specScore = specA && specB ? specSimilarity(specA, specB) * 0.4 : 0;
   return nameScore + specScore;
-}
-
-/**
- * 규격 유사도. 두 규격 모두 숫자가 포함되면 numeric similarity 가 주로 작동.
- * - "3mx6m" vs "3mx6.27m" 처럼 숫자 차원이 있는 경우, 단순 bigram 보다 훨씬 정확.
- * - 둘 다 비숫자 규격(예: "철근 D16")이면 string similarity 만 사용.
- */
-function specSimilarity(a: string, b: string): number {
-  const numsA = extractNumbers(a);
-  const numsB = extractNumbers(b);
-  const stringSim = stringSimilarity(a, b);
-  if (numsA.length > 0 && numsB.length > 0) {
-    const numSim = numericSimilarity(numsA, numsB);
-    return 0.3 * stringSim + 0.7 * numSim;
-  }
-  return stringSim;
-}
-
-function extractNumbers(s: string): number[] {
-  const m = s.match(/\d+(?:\.\d+)?/g);
-  return m ? m.map(Number) : [];
-}
-
-/**
- * 숫자 배열 유사도 (0..1). 짝지어 상대 거리 비교 + count mismatch 패널티.
- * - 같은 자리수의 숫자 짝: |a-b|/max(|a|,|b|) → 1에서 차감
- * - 자리수 다르면 (예: [3,6] vs [3,6,2.5]) 짧은 쪽 길이만 평가 후 길이 비율 패널티
- */
-function numericSimilarity(a: number[], b: number[]): number {
-  const len = Math.min(a.length, b.length);
-  if (len === 0) return 0;
-  let total = 0;
-  for (let i = 0; i < len; i++) {
-    const va = a[i];
-    const vb = b[i];
-    if (va === 0 && vb === 0) {
-      total += 1;
-    } else {
-      const denom = Math.max(Math.abs(va), Math.abs(vb));
-      const diff = denom === 0 ? 0 : Math.abs(va - vb) / denom;
-      total += Math.max(0, 1 - diff);
-    }
-  }
-  const countPenalty = len / Math.max(a.length, b.length);
-  return (total / len) * countPenalty;
-}
-
-function stringSimilarity(a: string, b: string): number {
-  const na = normalize(a);
-  const nb = normalize(b);
-  if (!na || !nb) return 0;
-  if (na === nb) return 1;
-  if (na.includes(nb) || nb.includes(na)) {
-    const ratio =
-      Math.min(na.length, nb.length) / Math.max(na.length, nb.length);
-    return 0.7 * ratio + 0.2;
-  }
-  return bigramJaccard(na, nb);
-}
-
-function normalize(s: string): string {
-  return s.replace(/\s+/g, "").toLowerCase();
-}
-
-function bigramJaccard(a: string, b: string): number {
-  const ba = bigrams(a);
-  const bb = bigrams(b);
-  if (ba.size === 0 || bb.size === 0) return 0;
-  let inter = 0;
-  for (const g of ba) if (bb.has(g)) inter++;
-  const union = ba.size + bb.size - inter;
-  return union === 0 ? 0 : inter / union;
-}
-
-function bigrams(s: string): Set<string> {
-  const set = new Set<string>();
-  for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
-  return set;
 }

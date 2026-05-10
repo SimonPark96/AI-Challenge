@@ -22,7 +22,8 @@ interface AiChatBotProps {
 const ANALYSIS_SAMPLES = [
   "이 견적에서 시장 대비 가장 비싼 항목 3개 알려줘",
   "매칭 신뢰도가 낮은 라인은?",
-  "노임으로 매칭된 항목들의 출처가 어디야?",
+  "3번 라인 왜 이 자재로 매칭됐어?",
+  "5번 라인 더 나은 후보 있었어?",
 ];
 
 const SEARCH_SAMPLES = [

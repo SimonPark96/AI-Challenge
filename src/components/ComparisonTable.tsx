@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, Calculator } from "lucide-react";
 
 interface ItemRow {
   id: number;
@@ -71,10 +71,7 @@ function fmt(n: number | null | undefined): string {
  * 저장된 it.deviationPct 는 이전 컨벤션((unit-market)/market) 기준이라 표시에 사용 X.
  * 항상 raw unitPrice/marketPrice 로 즉석 계산.
  */
-function computeDev(
-  unit: number | null,
-  market: number | null
-): number | null {
+function computeDev(unit: number | null, market: number | null): number | null {
   if (unit == null || market == null || unit === 0) return null;
   return ((market - unit) / unit) * 100;
 }
@@ -247,17 +244,15 @@ export function ComparisonTable({
   }
 
   return (
-    <section className="bg-white rounded-lg border border-slate-200">
-      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+    <section className="space-y-4">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-800">
-            세부 단가 비교 결과
+          <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+            <Calculator size={18} className="text-slate-500" /> 일위대가 검토
           </h2>
-          <div className="text-xs text-slate-500 mt-1">
-            총 {items.length}건 · 매칭 {matchedCount}건 · 협력사보다 비쌈{" "}
-            <span className="text-rose-600 font-medium">{overCount}</span> ·
-            저렴 <span className="text-blue-600 font-medium">{underCount}</span>
-          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            협력사 견적 항목을 시장 단가와 항목별로 비교합니다.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {savedAt && !editing && (
@@ -296,44 +291,61 @@ export function ComparisonTable({
       </div>
 
       {error && (
-        <div className="mx-6 mt-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-2">
+        <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-2">
           {error}
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600 text-xs">
+          <thead className="bg-slate-50 sticky top-0">
             <tr>
-              <th className="text-left px-3 py-2.5 font-medium w-10">#</th>
-              <th className="text-left px-3 py-2.5 font-medium">품명 / 규격</th>
-              <th className="text-left px-3 py-2.5 font-medium w-20">단위</th>
-              <th className="text-right px-3 py-2.5 font-medium w-20">수량</th>
-              <th className="text-right px-3 py-2.5 font-medium w-28">
+              <th className="text-left p-2 font-medium text-slate-600 text-xs w-10">
+                #
+              </th>
+              <th className="text-left p-2 font-medium text-slate-600 text-xs">
+                품명 / 규격
+              </th>
+              <th className="text-left p-2 font-medium text-slate-600 text-xs w-20">
+                단위
+              </th>
+              <th className="text-right p-2 font-medium text-slate-600 text-xs w-20">
+                수량
+              </th>
+              <th className="text-right p-2 font-medium text-slate-600 text-xs w-28">
                 협력사 단가
               </th>
-              <th className="text-right px-3 py-2.5 font-medium w-28">
+              <th className="text-right p-2 font-medium text-slate-600 text-xs w-28">
                 시장 단가
               </th>
-              <th className="text-right px-3 py-2.5 font-medium w-20">편차</th>
-              <th className="text-right px-3 py-2.5 font-medium w-20">
+              <th className="text-right p-2 font-medium text-slate-600 text-xs w-20">
+                편차
+              </th>
+              <th className="text-right p-2 font-medium text-slate-600 text-xs w-20">
                 신뢰도
               </th>
-              <th className="text-left px-3 py-2.5 font-medium w-20">출처</th>
-              <th className="text-left px-3 py-2.5 font-medium">매칭 자재</th>
+              <th className="text-left p-2 font-medium text-slate-600 text-xs w-20">
+                출처
+              </th>
+              <th className="text-left p-2 font-medium text-slate-600 text-xs">
+                매칭 자재
+              </th>
             </tr>
           </thead>
           <tbody>
             {items.map((it, i) => {
               const d = drafts[it.id] ?? toDraft(it);
               return (
-                <tr key={it.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2.5 text-xs font-mono text-slate-400">
+                <tr
+                  key={it.id}
+                  className="border-t border-slate-100 hover:bg-slate-50"
+                >
+                  <td className="p-2 text-xs font-mono text-slate-400">
                     {String(i + 1).padStart(2, "0")}
                   </td>
 
                   {/* 품명 / 규격 */}
-                  <td className="px-3 py-2.5">
+                  <td className="p-2">
                     {editing ? (
                       <div className="space-y-1">
                         <Input
@@ -350,9 +362,11 @@ export function ComparisonTable({
                       </div>
                     ) : (
                       <>
-                        <div className="text-slate-800">{it.itemName}</div>
+                        <div className="text-slate-800 font-medium">
+                          {it.itemName}
+                        </div>
                         {it.spec && (
-                          <div className="text-xs text-slate-400 mt-0.5">
+                          <div className="text-xs text-slate-500 mt-0.5">
                             {it.spec}
                           </div>
                         )}
@@ -361,7 +375,7 @@ export function ComparisonTable({
                   </td>
 
                   {/* 단위 */}
-                  <td className="px-3 py-2.5 text-slate-600">
+                  <td className="p-2 text-slate-600 text-xs">
                     {editing ? (
                       <Input
                         value={d.unit}
@@ -374,7 +388,7 @@ export function ComparisonTable({
                   </td>
 
                   {/* 수량 */}
-                  <td className="px-3 py-2.5 text-right font-mono text-slate-700">
+                  <td className="p-2 text-right font-mono text-slate-500 text-xs">
                     {editing ? (
                       <NumberInput
                         value={d.quantity}
@@ -386,7 +400,7 @@ export function ComparisonTable({
                   </td>
 
                   {/* 협력사 단가 */}
-                  <td className="px-3 py-2.5 text-right font-mono text-slate-800">
+                  <td className="p-2 text-right font-mono text-slate-700">
                     {editing ? (
                       <NumberInput
                         value={d.unitPrice}
@@ -398,7 +412,7 @@ export function ComparisonTable({
                   </td>
 
                   {/* 시장 단가 — 매칭이 없으면 marketPrice 가 null 이라 자동 "-" */}
-                  <td className="px-3 py-2.5 text-right font-mono text-slate-700">
+                  <td className="p-2 text-right font-mono font-semibold text-slate-800">
                     {editing ? (
                       <NumberInput
                         value={d.marketPrice}
@@ -411,7 +425,7 @@ export function ComparisonTable({
 
                   {/* 편차 — 시장이 협력사 단가 대비 얼마나 비싸냐(+) / 싸냐(-). 편집 중엔 draft 기반 preview */}
                   <td
-                    className={`px-3 py-2.5 text-right font-mono ${devColor(
+                    className={`p-2 text-right font-mono ${devColor(
                       editing
                         ? previewDeviation(d)
                         : computeDev(it.unitPrice, it.marketPrice)
@@ -429,7 +443,7 @@ export function ComparisonTable({
 
                   {/* 신뢰도 */}
                   <td
-                    className={`px-3 py-2.5 text-right text-xs ${confColor(
+                    className={`p-2 text-right text-xs ${confColor(
                       editing ? draftConfFraction(d) : it.matchedConfidence
                     )}`}
                   >
@@ -449,7 +463,7 @@ export function ComparisonTable({
                   </td>
 
                   {/* 출처 — 읽기 전용. 자재면 source(KPI/KPRC/CMPI), 노임이면 source + 노임 칩 */}
-                  <td className="px-3 py-2.5 text-xs">
+                  <td className="p-2 text-xs">
                     {it.matchedSource === "wage" && it.matchedWage ? (
                       <div className="flex flex-col gap-0.5">
                         <span className="font-mono text-slate-700 uppercase">
@@ -469,7 +483,7 @@ export function ComparisonTable({
                   </td>
 
                   {/* 매칭 자재/직종 — itemName / spec / 지역(편집 가능) */}
-                  <td className="px-3 py-2.5 text-xs text-slate-500">
+                  <td className="p-2 text-xs text-slate-500">
                     {(() => {
                       if (it.matchedSource === "wage" && it.matchedWage) {
                         return (
@@ -544,32 +558,58 @@ export function ComparisonTable({
               <tr>
                 <td
                   colSpan={10}
-                  className="px-3 py-12 text-center text-slate-400 text-sm"
+                  className="p-12 text-center text-slate-400 text-sm"
                 >
                   분석된 라인 아이템이 없습니다.
                 </td>
               </tr>
             )}
           </tbody>
-          {items.length > 0 && (() => {
-            const partnerSum = items.reduce((a, it) => a + (it.unitPrice ?? 0) * (it.quantity ?? 1), 0);
-            const marketSum  = items.reduce((a, it) => it.marketPrice != null ? a + it.marketPrice * (it.quantity ?? 1) : a, 0);
-            const hasMarket  = items.some((it) => it.marketPrice != null);
-            return (
-              <tfoot>
-                <tr className="border-t-2 border-slate-300 bg-slate-50">
-                  <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-slate-600">합계</td>
-                  <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-800">
-                    {partnerSum > 0 ? partnerSum.toLocaleString() : "-"}
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-700">
-                    {hasMarket && marketSum > 0 ? marketSum.toLocaleString() : "-"}
-                  </td>
-                  <td colSpan={4} />
-                </tr>
-              </tfoot>
-            );
-          })()}
+          {items.length > 0 &&
+            (() => {
+              const partnerSum = items.reduce(
+                (a, it) => a + (it.unitPrice ?? 0) * (it.quantity ?? 1),
+                0
+              );
+              const marketSum = items.reduce(
+                (a, it) =>
+                  it.marketPrice != null
+                    ? a + it.marketPrice * (it.quantity ?? 1)
+                    : a,
+                0
+              );
+              const hasMarket = items.some((it) => it.marketPrice != null);
+              const devTotal =
+                hasMarket && marketSum > 0
+                  ? ((partnerSum - marketSum) / marketSum) * 100
+                  : null;
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300 bg-slate-50">
+                    <td
+                      colSpan={4}
+                      className="p-2 text-xs font-semibold text-slate-600"
+                    >
+                      합계
+                    </td>
+                    <td className="p-2 text-right font-mono font-bold text-slate-800">
+                      {partnerSum > 0 ? partnerSum.toLocaleString() : "-"}
+                    </td>
+                    <td className="p-2 text-right font-mono font-bold text-slate-800">
+                      {hasMarket && marketSum > 0
+                        ? marketSum.toLocaleString()
+                        : "-"}
+                    </td>
+                    <td className="p-2 text-right font-mono text-xs">
+                      {devTotal != null
+                        ? `${devTotal > 0 ? "+" : ""}${devTotal.toFixed(1)}%`
+                        : "-"}
+                    </td>
+                    <td colSpan={3} />
+                  </tr>
+                </tfoot>
+              );
+            })()}
         </table>
       </div>
     </section>
