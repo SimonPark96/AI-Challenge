@@ -3,12 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { StepIndicator } from "@/components/StepIndicator";
-import { QuoteSummary } from "@/components/QuoteSummary";
-import { ComparisonTable } from "@/components/ComparisonTable";
-import { TotalComparison } from "@/components/TotalComparison";
-import { AICommentary } from "@/components/AICommentary";
-import { AiChatBot } from "@/components/chat/AiChatBot";
-import { AnalyzeTabContent } from "@/components/AnalyzeTabContent";
+import { AnalyzePageClient } from "@/components/AnalyzePageClient";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +18,7 @@ function num(v: unknown): number | null {
   return null;
 }
 
-export default async function ReviewByIdPage({
+export default async function AnalyzeByIdPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -38,16 +33,17 @@ export default async function ReviewByIdPage({
       include: {
         items: {
           orderBy: { rowIndex: "asc" },
-          include: { matchedPrice: true, matchedWage: { include: { wageRun: true } } },
+          include: {
+            matchedPrice: true,
+            matchedWage: { include: { wageRun: true } },
+          },
         },
         priceSummary: true,
       },
     }),
     prisma.bidRequest.findMany({
       where: { quotationId: qid },
-      include: {
-        receivedBids: { include: { items: true } },
-      },
+      include: { receivedBids: { include: { items: true } } },
     }),
   ]);
   if (!quotation) notFound();
@@ -59,39 +55,6 @@ export default async function ReviewByIdPage({
       ? (quotation.rawResponse as Record<string, unknown>)
       : null;
 
-  const items = quotation.items.map((it) => ({
-    id: it.id,
-    rowIndex: it.rowIndex,
-    itemName: it.itemName,
-    spec: it.spec,
-    unit: it.unit,
-    quantity: it.quantity,
-    unitPrice: it.unitPrice,
-    totalPrice: it.totalPrice,
-    matchedConfidence: it.matchedConfidence,
-    marketPrice: it.marketPrice,
-    marketRegion: it.marketRegion,
-    deviationPct: it.deviationPct,
-    matchedSource: (it.matchedSource ?? null) as "price" | "wage" | null,
-    matchedPrice: it.matchedPrice
-      ? {
-          itemName: it.matchedPrice.itemName,
-          spec: it.matchedPrice.spec,
-          source: it.matchedPrice.source,
-          region: it.matchedPrice.region,
-        }
-      : null,
-    matchedWage: it.matchedWage
-      ? {
-          jobName: it.matchedWage.jobName,
-          cateCd: it.matchedWage.cateCd,
-          source: it.matchedWage.wageRun?.source ?? null,
-          unit: it.matchedWage.unit,
-          basis: it.matchedWage.basis,
-        }
-      : null,
-  }));
-
   const partnerTotal =
     num(meta?.partnerPrice) ??
     (quotation.items.reduce((a, it) => a + (it.totalPrice ?? 0), 0) || null);
@@ -102,14 +65,12 @@ export default async function ReviewByIdPage({
     expenseCost: num(meta?.expenseCost),
   };
 
-  // 기밀 단가 합계: confUnitPrice × quantity
   const confMatched = quotation.items.filter((it) => it.confUnitPrice != null);
   const confTotal =
     confMatched.length > 0
       ? confMatched.reduce((a, it) => a + (it.confUnitPrice ?? 0) * (it.quantity ?? 1), 0)
       : null;
 
-  // 경쟁 견적 단가: analyze 시 선택된 견적 배열 우선, 없으면 수령된 최저가 폴백
   interface CompetitorBidCol {
     id: number;
     companyName: string | null;
@@ -120,7 +81,6 @@ export default async function ReviewByIdPage({
   }
 
   let competitorBids: CompetitorBidCol[] = [];
-
   const metaCompetitorBids = Array.isArray(meta?.competitorBids)
     ? (meta.competitorBids as CompetitorBidCol[])
     : [];
@@ -128,75 +88,69 @@ export default async function ReviewByIdPage({
   if (metaCompetitorBids.length > 0) {
     competitorBids = metaCompetitorBids;
   } else {
-    // 구버전 데이터: meta.competitorTotal 단일값 또는 수령된 최저가
     const legacyTotal = num(meta?.competitorTotal);
     if (legacyTotal !== null) {
       competitorBids = [{ id: 0, companyName: null, totalCost: legacyTotal, materialCost: null, laborCost: null, expenseCost: null }];
     } else {
-      const receivedTotals: number[] = [];
+      const totals: number[] = [];
       for (const br of bidRequests) {
         for (const rb of br.receivedBids) {
-          const sum = rb.items.reduce((a, ri) => a + (ri.totalCost ?? 0), 0);
-          if (sum > 0) receivedTotals.push(sum);
+          const s = rb.items.reduce((a, ri) => a + (ri.totalCost ?? 0), 0);
+          if (s > 0) totals.push(s);
         }
       }
-      if (receivedTotals.length > 0) {
-        competitorBids = [{ id: 0, companyName: null, totalCost: Math.min(...receivedTotals), materialCost: null, laborCost: null, expenseCost: null }];
+      if (totals.length > 0) {
+        competitorBids = [{ id: 0, companyName: null, totalCost: Math.min(...totals), materialCost: null, laborCost: null, expenseCost: null }];
       }
     }
   }
 
-  // AI 매칭 단가 합계: 각 라인의 시장단가 × 수량 합산 (매칭된 행만)
   const itemMatched = quotation.items.filter((it) => it.marketPrice != null);
   const itemMarketTotal =
     itemMatched.length > 0
-      ? itemMatched.reduce((a, it) => {
-          const qty = it.quantity ?? 1;
-          return a + (it.marketPrice ?? 0) * qty;
-        }, 0)
+      ? itemMatched.reduce((a, it) => a + (it.marketPrice ?? 0) * (it.quantity ?? 1), 0)
       : null;
 
-  // 매칭 source 별 분해 — 자재(price) → 재료비, 노임(wage) → 노무비, 경비는 라인 아이템에서 도출 불가.
-  const sumByMatchedSource = (src: "price" | "wage"): number | null => {
-    const rows = quotation.items.filter(
-      (it) => it.matchedSource === src && it.marketPrice != null
-    );
+  const sumBySource = (src: "price" | "wage"): number | null => {
+    const rows = quotation.items.filter((it) => it.matchedSource === src && it.marketPrice != null);
     if (rows.length === 0) return null;
-    return rows.reduce(
-      (a, it) => a + (it.marketPrice ?? 0) * (it.quantity ?? 1),
-      0
-    );
+    return rows.reduce((a, it) => a + (it.marketPrice ?? 0) * (it.quantity ?? 1), 0);
   };
   const itemMarketBreakdown = {
-    materialCost: sumByMatchedSource("price"),
-    laborCost: sumByMatchedSource("wage"),
+    materialCost: sumBySource("price"),
+    laborCost: sumBySource("wage"),
     expenseCost: null as number | null,
   };
 
+  const quotationName =
+    typeof meta?.projectName === "string" ? meta.projectName : null;
+  const quotationSpec =
+    typeof meta?.spec === "string" ? meta.spec : null;
+
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-8 max-w-7xl mx-auto space-y-4">
       <header>
-        <h1 className="text-2xl font-bold text-slate-800">
-          03. 적정 단가 검토
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-800">02. AI 자동 분석</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          AI가 협력사 견적 항목을 시장단가·사내 DB·실적단가와 자동 매칭한 결과입니다.
+        </p>
       </header>
 
-      <StepIndicator activeStep={3} quotationId={qid} showDataTabs dataTabsVariant="inline" />
+      <StepIndicator activeStep={2} quotationId={qid} />
 
-      <QuoteSummary
+      <AnalyzePageClient
         quotation={{
           id: quotation.id,
           fileName: quotation.fileName,
-          uploadedAt: quotation.uploadedAt,
+          uploadedAt: quotation.uploadedAt.toISOString(),
           status: quotation.status,
+          aiCommentary: quotation.aiCommentary,
+          aiCommentaryAt: quotation.aiCommentaryAt?.toISOString() ?? null,
         }}
         meta={meta}
-      />
-
-      <TotalComparison
         partnerTotal={partnerTotal}
         partnerCostBreakdown={partnerCostBreakdown}
-        summary={
+        priceSummary={
           quotation.priceSummary
             ? {
                 id: quotation.priceSummary.id,
@@ -212,18 +166,9 @@ export default async function ReviewByIdPage({
               }
             : null
         }
-        confTotal={confTotal}
-        confMatchedCount={confMatched.length}
-        competitorBids={competitorBids}
-        itemMarketTotal={itemMarketTotal}
-        itemMarketBreakdown={itemMarketBreakdown}
-        itemTotalCount={quotation.items.length}
-        itemMatchedCount={itemMatched.length}
-      />
-
-      <AnalyzeTabContent
         confItems={quotation.items.map((it) => ({
           id: it.id,
+          rowIndex: it.rowIndex,
           itemName: it.itemName,
           spec: it.spec,
           unit: it.unit,
@@ -233,40 +178,44 @@ export default async function ReviewByIdPage({
           matchedConfidence: it.matchedConfidence,
           deviationPct: it.deviationPct,
         }))}
-        priceSummary={
-          quotation.priceSummary
-            ? {
-                name: quotation.priceSummary.name,
-                spec: quotation.priceSummary.spec,
-                unit: quotation.priceSummary.unit,
-                totalCost: quotation.priceSummary.totalCost,
-                materialCost: quotation.priceSummary.materialCost,
-                laborCost: quotation.priceSummary.laborCost,
-                expenseCost: quotation.priceSummary.expenseCost,
-                sourceFile: quotation.priceSummary.sourceFile,
-              }
-            : null
-        }
+        confTotal={confTotal}
+        confMatchedCount={confMatched.length}
         competitorBids={competitorBids}
-        partnerTotal={partnerTotal}
+        itemMarketTotal={itemMarketTotal}
+        itemMarketBreakdown={itemMarketBreakdown}
+        itemTotalCount={quotation.items.length}
+        itemMatchedCount={itemMatched.length}
+        quotationName={quotationName}
+        quotationSpec={quotationSpec}
+        matchedItems={quotation.items.map((it) => ({
+          id: it.id,
+          rowIndex: it.rowIndex,
+          itemName: it.itemName,
+          spec: it.spec,
+          unit: it.unit,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          totalPrice: it.totalPrice,
+          matchedConfidence: it.matchedConfidence,
+          marketPrice: it.marketPrice,
+          marketRegion: it.marketRegion,
+          deviationPct: it.deviationPct,
+          matchedSource: (it.matchedSource ?? null) as "price" | "wage" | null,
+          matchedPrice: it.matchedPrice
+            ? { itemName: it.matchedPrice.itemName, spec: it.matchedPrice.spec, source: it.matchedPrice.source, region: it.matchedPrice.region }
+            : null,
+          matchedWage: it.matchedWage
+            ? { jobName: it.matchedWage.jobName, cateCd: it.matchedWage.cateCd, source: it.matchedWage.wageRun?.source ?? "", unit: it.matchedWage.unit, basis: it.matchedWage.basis }
+            : null,
+        }))}
       />
-
-      <ComparisonTable quotationId={quotation.id} items={items} />
-
-      {items.length > 0 && (
-        <AICommentary
-          quotationId={quotation.id}
-          initialCommentary={quotation.aiCommentary}
-          initialCommentaryAt={quotation.aiCommentaryAt}
-        />
-      )}
 
       <div className="flex justify-between pb-4">
         <Link
-          href={`/analyze/${quotation.id}`}
+          href="/request"
           className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
         >
-          <ChevronLeft size={16} /> AI 자동 분석으로
+          <ChevronLeft size={16} /> 다시 요청
         </Link>
         <Link
           href={`/confirm/${quotation.id}`}
@@ -275,8 +224,6 @@ export default async function ReviewByIdPage({
           결과 확정 <ChevronRight size={16} />
         </Link>
       </div>
-
-      <AiChatBot mode="review" quotationId={quotation.id} />
     </div>
   );
 }

@@ -34,6 +34,55 @@ export async function GET(
   return NextResponse.json({ quote });
 }
 
+export async function PATCH(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  const qid = Number(id);
+  if (!Number.isFinite(qid) || qid <= 0)
+    return NextResponse.json({ error: `Invalid id: ${id}` }, { status: 400 });
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "Body must be JSON" }, { status: 400 });
+  }
+
+  const updateData: Record<string, unknown> = {};
+
+  if ("priceSummaryId" in body) {
+    const v = body.priceSummaryId;
+    updateData.priceSummaryId = typeof v === "number" && Number.isFinite(v) ? v : null;
+  }
+
+  if ("competitorBids" in body) {
+    const current = await prisma.quotation.findUnique({
+      where: { id: qid },
+      select: { rawResponse: true },
+    });
+    const raw =
+      typeof current?.rawResponse === "object" &&
+      current.rawResponse !== null &&
+      !Array.isArray(current.rawResponse)
+        ? { ...(current.rawResponse as Record<string, unknown>) }
+        : {};
+    raw.competitorBids = body.competitorBids;
+    updateData.rawResponse = raw;
+  }
+
+  if (Object.keys(updateData).length === 0)
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+
+  const updated = await prisma.quotation.update({
+    where: { id: qid },
+    data: updateData,
+    select: { id: true, priceSummaryId: true },
+  });
+  return NextResponse.json({ ok: true, id: updated.id });
+}
+
 export async function DELETE(
   _req: Request,
   context: { params: Promise<{ id: string }> }

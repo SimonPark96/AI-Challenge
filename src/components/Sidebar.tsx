@@ -3,7 +3,21 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, FileSearch, Database, Send } from "lucide-react";
+import { LayoutGrid, FileSearch, Database, Send, ChevronDown, Database as DbIcon, BarChart2, FileText } from "lucide-react";
+
+const REVIEW_PATHS = ["/request", "/analyze", "/review", "/confirm", "/price-review", "/bid-request"];
+
+function isOnReviewPage(pathname: string) {
+  return REVIEW_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+}
+
+const DATA_SUB_ITEMS: { href: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
+  { href: "/price-review/db", label: "DB단가 견적", icon: DbIcon },
+  { href: "/price-review/actual", label: "실적단가 견적", icon: BarChart2 },
+  { href: "/bid-request", label: "3사 견적 요청", icon: Send },
+];
 
 interface MenuItem {
   href: string;
@@ -13,8 +27,6 @@ interface MenuItem {
 
 const MENU: MenuItem[] = [
   { href: "/dashboard", label: "대시보드", icon: LayoutGrid },
-  { href: "/request", label: "단가 검토 요청", icon: FileSearch },
-  { href: "/bid-request", label: "3사 견적 요청", icon: Send },
   { href: "/db", label: "DB 관리", icon: Database },
 ];
 
@@ -26,6 +38,13 @@ const CURRENT_USER = {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const onReview = isOnReviewPage(pathname);
+
+  const reviewActive =
+    pathname === "/request" || pathname.startsWith("/request/") ||
+    pathname.startsWith("/analyze/") || pathname.startsWith("/review/") ||
+    pathname.startsWith("/confirm/") || pathname.startsWith("/price-review/") ||
+    pathname === "/bid-request" || pathname.startsWith("/bid-request/");
 
   return (
     <aside className="w-72 shrink-0 bg-[#001E62] text-slate-100 flex flex-col">
@@ -43,8 +62,65 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 py-4 px-3 space-y-1">
-        {MENU.map((m) => {
+      <nav className="flex-1 py-4 px-3 space-y-0.5">
+        {/* 대시보드 */}
+        <Link
+          href="/dashboard"
+          className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors ${
+            pathname === "/dashboard"
+              ? "bg-white text-[#001E62] font-semibold shadow-sm"
+              : "text-slate-200 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <LayoutGrid size={16} />
+          <span>대시보드</span>
+        </Link>
+
+        {/* 단가 검토 요청 (확장형) */}
+        <div>
+          <Link
+            href="/request"
+            className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors ${
+              reviewActive
+                ? "bg-white text-[#001E62] font-semibold shadow-sm"
+                : "text-slate-200 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            <FileSearch size={16} />
+            <span className="flex-1">단가 검토 요청</span>
+            <ChevronDown
+              size={14}
+              className={`transition-transform duration-200 ${onReview ? "rotate-0" : "-rotate-90"}`}
+            />
+          </Link>
+
+          {/* 하위 메뉴 - 단가 검토 관련 페이지에서만 표시 */}
+          {onReview && (
+            <div className="mt-0.5 ml-4 pl-4 border-l border-white/20 space-y-0.5">
+              {DATA_SUB_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-xs transition-colors ${
+                      isActive
+                        ? "bg-blue-500/30 text-white font-semibold"
+                        : "text-slate-300 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <Icon size={13} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 나머지 메뉴 */}
+        {MENU.filter((m) => m.href !== "/dashboard").map((m) => {
           const active =
             pathname === m.href || pathname.startsWith(m.href + "/");
           const Icon = m.icon;

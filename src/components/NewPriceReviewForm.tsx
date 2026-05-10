@@ -39,6 +39,24 @@ export interface QuotationItemData {
 interface Props {
   quotationItems?: QuotationItemData[];
   quotationFileName?: string;
+  /** DB단가 탭 최종 합계 */
+  dbTotal?: number | null;
+  /** 실적단가 탭 최종 선택 항목 */
+  actualSummary?: {
+    name?: string | null;
+    totalCost?: number | null;
+    materialCost?: number | null;
+    laborCost?: number | null;
+    expenseCost?: number | null;
+  } | null;
+  /** 비교견적 탭 선택 카드 목록 */
+  competitorBids?: Array<{
+    companyName?: string | null;
+    totalCost?: number | null;
+    materialCost?: number | null;
+    laborCost?: number | null;
+    expenseCost?: number | null;
+  }>;
 }
 
 // ─────────────────────────────────────────────
@@ -403,7 +421,7 @@ function fmtSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
-export function NewPriceReviewForm({ quotationItems, quotationFileName }: Props) {
+export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal, actualSummary, competitorBids }: Props) {
   const [projectName, setProjectName] = useState("");
   const [reviewReason, setReviewReason] = useState("");
 
@@ -411,10 +429,22 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName }: Props)
     contract: "X", db: "X", actual: "X", estimate: "O", unit: "X",
   });
   function cycleMark(key: string) {
-    setBasisMarks(prev => {
-      const idx = MARK_CYCLE.indexOf(prev[key] as PriceMark);
-      return { ...prev, [key]: MARK_CYCLE[(idx + 1) % MARK_CYCLE.length] };
-    });
+    const idx = MARK_CYCLE.indexOf(basisMarks[key] as PriceMark);
+    const newMark = MARK_CYCLE[(idx + 1) % MARK_CYCLE.length];
+    setBasisMarks(prev => ({ ...prev, [key]: newMark }));
+    if (newMark === "O" || newMark === "△") {
+      if (key === "db" && dbTotal != null) {
+        setDbRows([makeRow({ name: "DB단가 합계", totalAmount: fmtStr(dbTotal) })]);
+      } else if (key === "actual" && actualSummary) {
+        setActualRows([makeRow({
+          name: actualSummary.name ?? "실적단가",
+          materialCost: fmtStr(actualSummary.materialCost),
+          laborCost: fmtStr(actualSummary.laborCost),
+          expenseCost: fmtStr(actualSummary.expenseCost),
+          totalAmount: fmtStr(actualSummary.totalCost),
+        })]);
+      }
+    }
   }
 
   const [newItemName, setNewItemName] = useState(
@@ -463,8 +493,10 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName }: Props)
   const [reviewNotes, setReviewNotes] = useState("");
   const [negotiationResult, setNegotiationResult] = useState("");
 
-  const APPLIED_OPTS = ["검토단가 적용", "견적가 적용", "기계약 단가 적용", "실적 단가 적용", "DB 단가 적용"];
-  const [appliedPlan, setAppliedPlan] = useState("검토단가 적용");
+  const APPLIED_OPTS = ["종합단가 적용", "검토단가 적용", "견적가 적용", "기계약 단가 적용", "실적 단가 적용", "DB 단가 적용"];
+  const COMPOSITE_SUB_OPTS = ["기계약단가", "DB단가", "실적단가", "비교견적단가", "일위대가단가"];
+  const [appliedPlan, setAppliedPlan] = useState("종합단가 적용");
+  const [compositePlan, setCompositePlan] = useState("기계약단가");
 
   // 첨부파일
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -499,10 +531,31 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName }: Props)
           : "검토단가 = 견적가"
       : "";
 
-  const appliedRows: ReviewRow[] =
-    appliedPlan.includes("검토단가") ? reviewRows :
-    appliedPlan.includes("견적가") ? estimateRows.map(r => ({ ...r, rowType: "견적가" as ReviewRowType })) :
-    reviewRows;
+  const appliedRows: ReviewRow[] = (() => {
+    if (appliedPlan === "종합단가 적용") {
+      if (compositePlan === "기계약단가") return contractRows.map(r => ({ ...r, rowType: "기계약" as ReviewRowType }));
+      if (compositePlan === "DB단가") return dbRows.map(r => ({ ...r, rowType: "환산단가" as ReviewRowType }));
+      if (compositePlan === "실적단가") return actualRows.map(r => ({ ...r, rowType: "환산단가" as ReviewRowType }));
+      if (compositePlan === "비교견적단가") {
+        if (competitorBids && competitorBids.length > 0) {
+          return competitorBids.map((bid) => makeReviewRow({
+            rowType: "견적가",
+            name: bid.companyName ?? "비교견적",
+            materialCost: fmtStr(bid.materialCost),
+            laborCost: fmtStr(bid.laborCost),
+            expenseCost: fmtStr(bid.expenseCost),
+            totalAmount: fmtStr(bid.totalCost),
+          }));
+        }
+        return [makeReviewRow({ rowType: "견적가" })];
+      }
+      if (compositePlan === "일위대가단가") return unitRows.map(r => ({ ...r, rowType: "환산단가" as ReviewRowType }));
+      return reviewRows;
+    }
+    if (appliedPlan.includes("검토단가")) return reviewRows;
+    if (appliedPlan.includes("견적가")) return estimateRows.map(r => ({ ...r, rowType: "견적가" as ReviewRowType }));
+    return reviewRows;
+  })();
 
   const basisDefs: Array<{ key: string; label: string }> = [
     { key: "contract", label: "기계약단가" },
@@ -682,7 +735,7 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName }: Props)
 
         {/* 적용안 */}
         <div>
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
             <label className="text-sm font-semibold text-slate-700">적용안</label>
             <select
               value={appliedPlan}
@@ -691,6 +744,18 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName }: Props)
             >
               {APPLIED_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
+            {appliedPlan === "종합단가 적용" && (
+              <>
+                <span className="text-slate-400 text-sm">—</span>
+                <select
+                  value={compositePlan}
+                  onChange={(e) => setCompositePlan(e.target.value)}
+                  className="border border-violet-300 rounded-md px-3 py-1.5 text-sm font-semibold text-violet-700 bg-violet-50/60 focus:outline-none focus:ring-2 focus:ring-violet-400/40"
+                >
+                  {COMPOSITE_SUB_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </>
+            )}
           </div>
           <AppliedTable rows={appliedRows} />
         </div>

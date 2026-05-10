@@ -551,6 +551,25 @@ export function ComparisonTable({
               </tr>
             )}
           </tbody>
+          {items.length > 0 && (() => {
+            const partnerSum = items.reduce((a, it) => a + (it.unitPrice ?? 0) * (it.quantity ?? 1), 0);
+            const marketSum  = items.reduce((a, it) => it.marketPrice != null ? a + it.marketPrice * (it.quantity ?? 1) : a, 0);
+            const hasMarket  = items.some((it) => it.marketPrice != null);
+            return (
+              <tfoot>
+                <tr className="border-t-2 border-slate-300 bg-slate-50">
+                  <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-slate-600">합계</td>
+                  <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-800">
+                    {partnerSum > 0 ? partnerSum.toLocaleString() : "-"}
+                  </td>
+                  <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-700">
+                    {hasMarket && marketSum > 0 ? marketSum.toLocaleString() : "-"}
+                  </td>
+                  <td colSpan={4} />
+                </tr>
+              </tfoot>
+            );
+          })()}
         </table>
       </div>
     </section>

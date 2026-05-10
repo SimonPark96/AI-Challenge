@@ -93,6 +93,8 @@ export interface SelectedSummary {
 }
 
 export type AutoMatchStatus = "idle" | "loading" | "matched" | "empty" | "error";
+export type DataTab = "db" | "actual" | "bid";
+export type AnalyzeTab = "summary" | "db" | "actual" | "bid" | "ai-matching";
 
 type ScalarKey = Exclude<keyof RequestForm, "items">;
 
@@ -112,6 +114,8 @@ interface RequestState {
   submitting: boolean;
   submitError: string | null;
   selectedCompetitorBidIds: number[];
+  activeDataTab: DataTab;
+  activeAnalyzeTab: AnalyzeTab;
 
   setFile: (file: File | null) => void;
   uploadAndExtract: () => Promise<void>;
@@ -131,6 +135,8 @@ interface RequestState {
   }) => void;
   setSelectedSummary: (s: SelectedSummary | null) => void;
   toggleCompetitorBid: (id: number) => void;
+  setActiveDataTab: (tab: DataTab) => void;
+  setActiveAnalyzeTab: (tab: AnalyzeTab) => void;
   resetForm: () => void;
   submit: () => Promise<{ quotationId: number } | null>;
 }
@@ -169,6 +175,8 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   submitting: false,
   submitError: null,
   selectedCompetitorBidIds: [],
+  activeDataTab: "db",
+  activeAnalyzeTab: "summary",
 
   setFile: (file) => {
     set({
@@ -351,6 +359,14 @@ export const useRequestStore = create<RequestState>((set, get) => ({
       if (ids.length >= 3) return {};
       return { selectedCompetitorBidIds: [...ids, id] };
     });
+  },
+
+  setActiveDataTab: (tab) => {
+    set({ activeDataTab: tab });
+  },
+
+  setActiveAnalyzeTab: (tab) => {
+    set({ activeAnalyzeTab: tab });
   },
 
   resetForm: () => {

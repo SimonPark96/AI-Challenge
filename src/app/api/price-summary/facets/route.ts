@@ -9,12 +9,19 @@ export const dynamic = "force-dynamic";
  * 자동 매칭 카드의 select / date input 옵션 채울 때 사용.
  */
 export async function GET() {
-  const [divisions, dateAgg] = await Promise.all([
+  const [divisions, projects, dateAgg] = await Promise.all([
     prisma.priceSummary.findMany({
       where: { businessDivision: { not: null } },
       select: { businessDivision: true },
       distinct: ["businessDivision"],
       orderBy: { businessDivision: "asc" },
+    }),
+    prisma.priceSummary.findMany({
+      where: { projectName: { not: null } },
+      select: { projectName: true },
+      distinct: ["projectName"],
+      orderBy: { projectName: "asc" },
+      take: 300,
     }),
     prisma.priceSummary.aggregate({
       _min: { firstContractDate: true },
@@ -25,6 +32,9 @@ export async function GET() {
   return NextResponse.json({
     businessDivisions: divisions
       .map((d) => d.businessDivision)
+      .filter((v): v is string => v != null),
+    projectNames: projects
+      .map((p) => p.projectName)
       .filter((v): v is string => v != null),
     contractDateRange: {
       min: dateAgg._min.firstContractDate

@@ -8,6 +8,7 @@ import {
   FileSpreadsheet,
   Lock,
 } from "lucide-react";
+import { useRequestStore } from "@/lib/stores/request-store";
 
 interface Props {
   quotationId: number;
@@ -23,12 +24,19 @@ interface Props {
  * - 이미 confirmed (= 결재요청 완료) 면 체크박스가 잠긴 상태로 항상 체크.
  */
 export function ConfirmAndOrderSection({ quotationId, status }: Props) {
+  const activeTab = useRequestStore((s) => s.activeAnalyzeTab);
+  const isOnSummary = activeTab === "summary";
   const isConfirmed = status === "confirmed";
   const [intentChecked, setIntentChecked] = useState<boolean>(isConfirmed);
   const checked = isConfirmed || intentChecked;
 
   return (
-    <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
+    <section className={`bg-white rounded-lg border p-6 space-y-4 transition ${isOnSummary ? "border-slate-200" : "border-slate-100 opacity-50 pointer-events-none select-none"}`}>
+      {!isOnSummary && (
+        <div className="text-xs text-slate-400 text-center pb-1">
+          종합 탭에서만 결과를 확정할 수 있습니다.
+        </div>
+      )}
       <div>
         <h2 className="text-base font-semibold text-slate-800">
           검토 결과 확정 및 작업지시서 생성

@@ -125,7 +125,7 @@ export async function buildChatContext(
       const cateLabel = WAGE_CATE_LABELS[w.cateCd] ?? w.cateCd;
       detail.push(
         `매칭=노임/${w.jobName} [${(
-          w.source ?? "kpi-wage"
+          w.wageRun?.source ?? "kpi-wage"
         ).toUpperCase()} · ${cateLabel}${w.basis ? ` · ${w.basis}` : ""}]`
       );
       if (w.wageRun?.sourceUrl) detail.push(`출처URL=${w.wageRun.sourceUrl}`);
