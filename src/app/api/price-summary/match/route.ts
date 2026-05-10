@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { cosineSimilarity, embedText } from "@/lib/openai/embed";
+import {
+  buildEmbeddingTextWithSpec,
+  cosineSimilarity,
+  embedText,
+} from "@/lib/openai/embed";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +69,7 @@ export async function POST(req: Request) {
   const dateFrom = parseDateOrNull(body.dateFrom);
   const dateTo = parseDateOrNull(body.dateTo);
 
-  const queryText = spec ? `${name} ${spec}` : name;
+  const queryText = buildEmbeddingTextWithSpec(name, spec);
 
   let queryVec: number[] | null = null;
   try {

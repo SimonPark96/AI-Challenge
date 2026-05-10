@@ -8,7 +8,13 @@ import { Plus, Trash2, ClipboardList, Paperclip, X, FileText, FileImage, File } 
 // ─────────────────────────────────────────────
 
 type PriceMark = "O" | "△" | "X" | "";
-type ReviewRowType = "견적가" | "환산단가" | "기계약";
+/** 적용안 행의 출처 — 단가검토 섹션의 어느 테이블에서 왔는지를 그대로 표시. */
+type SourceCategory =
+  | "기계약단가"
+  | "DB단가"
+  | "실적단가"
+  | "견적가"
+  | "일위대가";
 
 interface PriceRow {
   id: string;
@@ -23,7 +29,7 @@ interface PriceRow {
 }
 
 interface ReviewRow extends PriceRow {
-  rowType: ReviewRowType;
+  category: SourceCategory;
 }
 
 export interface QuotationItemData {
@@ -101,10 +107,6 @@ function makeRow(o: Partial<PriceRow> = {}): PriceRow {
   return { id: uid(), name: "", spec: "", quantity: "", materialCost: "", laborCost: "", expenseCost: "", unitTotal: "", totalAmount: "", ...o };
 }
 
-function makeReviewRow(o: Partial<ReviewRow> = {}): ReviewRow {
-  return { ...makeRow(), rowType: "견적가", ...o };
-}
-
 function fromItem(item: QuotationItemData): PriceRow {
   return makeRow({
     name: item.itemName,
@@ -115,11 +117,10 @@ function fromItem(item: QuotationItemData): PriceRow {
   });
 }
 
-function fromItemMarket(item: QuotationItemData): ReviewRow {
+function fromItemMarketPrice(item: QuotationItemData): PriceRow {
   const amt = item.marketPrice != null && item.quantity != null
     ? Math.round(item.marketPrice * item.quantity) : null;
-  return makeReviewRow({
-    rowType: "환산단가",
+  return makeRow({
     name: item.itemName,
     spec: item.spec ?? "",
     quantity: fmtStr(item.quantity),
@@ -184,18 +185,33 @@ function TH({ children, cls = "" }: { children: React.ReactNode; cls?: string })
 // Sub-tables
 // ─────────────────────────────────────────────
 
-function EstimateTable({ rows, setRows }: { rows: PriceRow[]; setRows: (r: PriceRow[]) => void }) {
+function EstimateTable({
+  rows,
+  setRows,
+  tableKey,
+  selectedKeys,
+  onToggleSelect,
+}: {
+  rows: PriceRow[];
+  setRows: (r: PriceRow[]) => void;
+  /** "contract" | "db" | "actual" | "estimate" | "unit" — 선택 키 prefix */
+  tableKey?: string;
+  selectedKeys?: Set<string>;
+  onToggleSelect?: (rowId: string) => void;
+}) {
   function update(id: string, field: keyof PriceRow, val: string) {
     setRows(rows.map(r => r.id === id ? { ...r, [field]: val } : r));
   }
   function remove(id: string) { setRows(rows.filter(r => r.id !== id)); }
   const total = sumRows(rows);
+  const selectable = !!(tableKey && selectedKeys && onToggleSelect);
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse" style={{ minWidth: 680 }}>
+      <table className="w-full border-collapse" style={{ minWidth: selectable ? 720 : 680 }}>
         <thead>
           <tr>
+            {selectable && <TH cls="w-8">선택</TH>}
             <TH cls="w-36">명칭</TH>
             <TH cls="w-24">규격</TH>
             <TH cls="w-16">수량</TH>
@@ -211,8 +227,26 @@ function EstimateTable({ rows, setRows }: { rows: PriceRow[]; setRows: (r: Price
           {rows.map((r) => {
             const computed = rowUnitTotal(r);
             const computedAmt = computed * numVal(r.quantity);
+            const selKey = selectable ? `${tableKey}:${r.id}` : null;
+            const isSelected = selKey ? selectedKeys!.has(selKey) : false;
             return (
-              <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
+              <tr
+                key={r.id}
+                className={`transition-colors ${
+                  isSelected ? "bg-blue-50/60" : "hover:bg-slate-50/60"
+                }`}
+              >
+                {selectable && (
+                  <td className="border border-slate-200 text-center bg-slate-50/40">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleSelect!(r.id)}
+                      className="w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+                      aria-label="적용안에 포함"
+                    />
+                  </td>
+                )}
                 <TCell value={r.name} onChange={v => update(r.id, "name", v)} placeholder="명칭" />
                 <TCell value={r.spec} onChange={v => update(r.id, "spec", v)} placeholder="규격" />
                 <NCell value={r.quantity} onChange={v => update(r.id, "quantity", v)} />
@@ -232,7 +266,7 @@ function EstimateTable({ rows, setRows }: { rows: PriceRow[]; setRows: (r: Price
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={7} className="border border-slate-200 px-2 py-1.5 text-center text-xs font-semibold text-slate-600 bg-slate-50">
+            <td colSpan={selectable ? 8 : 7} className="border border-slate-200 px-2 py-1.5 text-center text-xs font-semibold text-slate-600 bg-slate-50">
               합 계
             </td>
             <td className="border border-slate-200 px-2 py-1.5 text-right text-xs font-mono font-bold text-slate-800 bg-slate-50">
@@ -252,96 +286,13 @@ function EstimateTable({ rows, setRows }: { rows: PriceRow[]; setRows: (r: Price
   );
 }
 
-function ReviewTable({ rows, setRows }: { rows: ReviewRow[]; setRows: (r: ReviewRow[]) => void }) {
-  const ROW_TYPES: ReviewRowType[] = ["견적가", "환산단가", "기계약"];
-  const typeStyle: Record<ReviewRowType, string> = {
-    "견적가": "bg-sky-50 text-sky-700 border-sky-200",
-    "환산단가": "bg-emerald-50 text-emerald-700 border-emerald-200",
-    "기계약": "bg-slate-100 text-slate-600 border-slate-200",
-  };
-
-  function update(id: string, field: keyof ReviewRow, val: string) {
-    setRows(rows.map(r => r.id === id ? { ...r, [field]: val } : r));
-  }
-  function remove(id: string) { setRows(rows.filter(r => r.id !== id)); }
-  const total = sumRows(rows);
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse" style={{ minWidth: 740 }}>
-        <thead>
-          <tr>
-            <TH cls="w-16">구분</TH>
-            <TH cls="w-32">명칭</TH>
-            <TH cls="w-24">규격</TH>
-            <TH cls="w-16">수량</TH>
-            <TH cls="w-20">재료비</TH>
-            <TH cls="w-20">노무비</TH>
-            <TH cls="w-16">경비</TH>
-            <TH cls="w-20">단가계</TH>
-            <TH cls="w-24">금액</TH>
-            <th className="border border-slate-200 bg-slate-50 w-8" />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const computed = rowUnitTotal(r);
-            const computedAmt = computed * numVal(r.quantity);
-            return (
-              <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
-                <td className="border border-slate-200 p-0">
-                  <select
-                    value={r.rowType}
-                    onChange={(e) => update(r.id, "rowType", e.target.value)}
-                    className={`w-full px-1 py-[5px] text-[10px] font-semibold focus:outline-none appearance-none text-center border-0 ${typeStyle[r.rowType]}`}
-                  >
-                    {ROW_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </td>
-                <TCell value={r.name} onChange={v => update(r.id, "name", v)} placeholder="명칭" />
-                <TCell value={r.spec} onChange={v => update(r.id, "spec", v)} placeholder="규격" />
-                <NCell value={r.quantity} onChange={v => update(r.id, "quantity", v)} />
-                <NCell value={r.materialCost} onChange={v => update(r.id, "materialCost", v)} />
-                <NCell value={r.laborCost} onChange={v => update(r.id, "laborCost", v)} />
-                <NCell value={r.expenseCost} onChange={v => update(r.id, "expenseCost", v)} />
-                <NCell value={r.unitTotal || (computed ? fmtStr(computed) : "")} onChange={v => update(r.id, "unitTotal", v)} />
-                <NCell value={r.totalAmount || (computedAmt ? fmtStr(computedAmt) : "")} onChange={v => update(r.id, "totalAmount", v)} />
-                <td className="border border-slate-200 text-center bg-slate-50/50">
-                  <button onClick={() => remove(r.id)} className="text-slate-300 hover:text-rose-400 px-1 transition-colors">
-                    <Trash2 size={11} />
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colSpan={8} className="border border-slate-200 px-2 py-1.5 text-center text-xs font-semibold text-slate-600 bg-slate-50">
-              합 계
-            </td>
-            <td className="border border-slate-200 px-2 py-1.5 text-right text-xs font-mono font-bold text-slate-800 bg-slate-50">
-              {total ? total.toLocaleString() : "-"}
-            </td>
-            <td className="border border-slate-200 bg-slate-50" />
-          </tr>
-        </tfoot>
-      </table>
-      <button
-        onClick={() => setRows([...rows, makeReviewRow()])}
-        className="mt-2 flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 transition-colors"
-      >
-        <Plus size={12} /> 행 추가
-      </button>
-    </div>
-  );
-}
-
 function AppliedTable({ rows }: { rows: ReviewRow[] }) {
-  const typeStyle: Record<ReviewRowType, string> = {
-    "견적가": "bg-sky-50/60 text-sky-700",
-    "환산단가": "bg-emerald-50/60 text-emerald-700",
-    "기계약": "bg-slate-100/60 text-slate-600",
+  const typeStyle: Record<SourceCategory, string> = {
+    "기계약단가": "bg-slate-100/60 text-slate-600",
+    "DB단가":     "bg-rose-50/60 text-rose-700",
+    "실적단가":   "bg-sky-50/60 text-sky-700",
+    "견적가":     "bg-amber-50/60 text-amber-700",
+    "일위대가":   "bg-emerald-50/60 text-emerald-700",
   };
   const total = sumRows(rows);
 
@@ -350,7 +301,7 @@ function AppliedTable({ rows }: { rows: ReviewRow[] }) {
       <table className="w-full border-collapse" style={{ minWidth: 680 }}>
         <thead>
           <tr>
-            <TH cls="w-16">구분</TH>
+            <TH cls="w-20">구분</TH>
             <TH cls="w-32">명칭</TH>
             <TH cls="w-24">규격</TH>
             <TH cls="w-16">수량</TH>
@@ -367,8 +318,8 @@ function AppliedTable({ rows }: { rows: ReviewRow[] }) {
             const amt = rowTotal(r);
             return (
               <tr key={r.id}>
-                <td className={`border border-slate-200 px-2 py-[5px] text-[10px] font-semibold text-center ${typeStyle[r.rowType]}`}>
-                  {r.rowType}
+                <td className={`border border-slate-200 px-2 py-[5px] text-[10px] font-semibold text-center whitespace-nowrap ${typeStyle[r.category]}`}>
+                  {r.category}
                 </td>
                 <td className="border border-slate-200 px-2 py-[5px] text-xs">{r.name || "-"}</td>
                 <td className="border border-slate-200 px-2 py-[5px] text-xs text-slate-500">{r.spec || "-"}</td>
@@ -461,7 +412,13 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal,
   const [contractRows, setContractRows] = useState<PriceRow[]>([makeRow()]);
   const [dbRows, setDbRows] = useState<PriceRow[]>([makeRow()]);
   const [actualRows, setActualRows] = useState<PriceRow[]>([makeRow()]);
-  const [unitRows, setUnitRows] = useState<PriceRow[]>([makeRow()]);
+  const [unitRows, setUnitRows] = useState<PriceRow[]>(() => {
+    if (quotationItems && quotationItems.length > 0) {
+      const matched = quotationItems.filter(it => it.marketPrice != null);
+      if (matched.length > 0) return matched.slice(0, 15).map(fromItemMarketPrice);
+    }
+    return [makeRow()];
+  });
 
   function getBasisRows(key: string): { rows: PriceRow[]; setRows: (r: PriceRow[]) => void } | null {
     switch (key) {
@@ -474,29 +431,53 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal,
     }
   }
 
-  const [reviewRows, setReviewRows] = useState<ReviewRow[]>(() => {
-    if (quotationItems && quotationItems.length > 0) {
-      const matched = quotationItems.filter(it => it.marketPrice != null);
-      if (matched.length > 0) return matched.slice(0, 15).map(fromItemMarket);
-      return quotationItems.slice(0, 5).map(it => makeReviewRow({
-        rowType: "견적가",
-        name: it.itemName,
-        spec: it.spec ?? "",
-        quantity: fmtStr(it.quantity),
-        unitTotal: fmtStr(it.unitPrice),
-        totalAmount: fmtStr(it.totalPrice),
-      }));
-    }
-    return [makeReviewRow()];
-  });
-
   const [reviewNotes, setReviewNotes] = useState("");
   const [negotiationResult, setNegotiationResult] = useState("");
 
-  const APPLIED_OPTS = ["종합단가 적용", "검토단가 적용", "견적가 적용", "기계약 단가 적용", "실적 단가 적용", "DB 단가 적용"];
-  const COMPOSITE_SUB_OPTS = ["기계약단가", "DB단가", "실적단가", "비교견적단가", "일위대가단가"];
+  const APPLIED_OPTS = ["종합단가 적용", "견적가 적용", "기계약 단가 적용", "실적 단가 적용", "DB 단가 적용", "일위대가 적용"];
   const [appliedPlan, setAppliedPlan] = useState("종합단가 적용");
-  const [compositePlan, setCompositePlan] = useState("기계약단가");
+
+  // 종합단가 적용 — 사용자가 단가검토 테이블들에서 체크박스로 선택한 행들이 자동 합쳐짐.
+  // 키 형식: `${tableKey}:${rowId}` (예: "contract:5", "db:7")
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  function toggleSelect(tableKey: string, rowId: string) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      const key = `${tableKey}:${rowId}`;
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const TABLE_TO_CATEGORY: Record<string, SourceCategory> = {
+    contract: "기계약단가",
+    db:       "DB단가",
+    actual:   "실적단가",
+    estimate: "견적가",
+    unit:     "일위대가",
+  };
+
+  const composedRows: ReviewRow[] = (() => {
+    const out: ReviewRow[] = [];
+    const tables: Array<{ key: string; rows: PriceRow[] }> = [
+      { key: "contract", rows: contractRows },
+      { key: "db",       rows: dbRows },
+      { key: "actual",   rows: actualRows },
+      { key: "estimate", rows: estimateRows },
+      { key: "unit",     rows: unitRows },
+    ];
+    for (const t of tables) {
+      const category = TABLE_TO_CATEGORY[t.key];
+      if (!category) continue;
+      for (const r of t.rows) {
+        if (selectedKeys.has(`${t.key}:${r.id}`)) {
+          out.push({ ...r, category });
+        }
+      }
+    }
+    return out;
+  })();
 
   // 첨부파일
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -520,42 +501,36 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal,
   }
 
   const estTotal = sumRows(estimateRows);
-  const revTotal = sumRows(reviewRows);
-
-  const compareLabel =
-    revTotal > 0 && estTotal > 0
-      ? revTotal < estTotal
-        ? `검토단가 (${revTotal.toLocaleString()}원) < 견적가 (${estTotal.toLocaleString()}원)`
-        : revTotal > estTotal
-          ? `검토단가 (${revTotal.toLocaleString()}원) > 견적가 (${estTotal.toLocaleString()}원)`
-          : "검토단가 = 견적가"
-      : "";
 
   const appliedRows: ReviewRow[] = (() => {
-    if (appliedPlan === "종합단가 적용") {
-      if (compositePlan === "기계약단가") return contractRows.map(r => ({ ...r, rowType: "기계약" as ReviewRowType }));
-      if (compositePlan === "DB단가") return dbRows.map(r => ({ ...r, rowType: "환산단가" as ReviewRowType }));
-      if (compositePlan === "실적단가") return actualRows.map(r => ({ ...r, rowType: "환산단가" as ReviewRowType }));
-      if (compositePlan === "비교견적단가") {
-        if (competitorBids && competitorBids.length > 0) {
-          return competitorBids.map((bid) => makeReviewRow({
-            rowType: "견적가",
-            name: bid.companyName ?? "비교견적",
-            materialCost: fmtStr(bid.materialCost),
-            laborCost: fmtStr(bid.laborCost),
-            expenseCost: fmtStr(bid.expenseCost),
-            totalAmount: fmtStr(bid.totalCost),
-          }));
-        }
-        return [makeReviewRow({ rowType: "견적가" })];
-      }
-      if (compositePlan === "일위대가단가") return unitRows.map(r => ({ ...r, rowType: "환산단가" as ReviewRowType }));
-      return reviewRows;
+    switch (appliedPlan) {
+      case "종합단가 적용":
+        return composedRows;
+      case "견적가 적용":
+        return estimateRows.map(r => ({ ...r, category: "견적가" as SourceCategory }));
+      case "기계약 단가 적용":
+        return contractRows.map(r => ({ ...r, category: "기계약단가" as SourceCategory }));
+      case "실적 단가 적용":
+        return actualRows.map(r => ({ ...r, category: "실적단가" as SourceCategory }));
+      case "DB 단가 적용":
+        return dbRows.map(r => ({ ...r, category: "DB단가" as SourceCategory }));
+      case "일위대가 적용":
+        return unitRows.map(r => ({ ...r, category: "일위대가" as SourceCategory }));
+      default:
+        return composedRows;
     }
-    if (appliedPlan.includes("검토단가")) return reviewRows;
-    if (appliedPlan.includes("견적가")) return estimateRows.map(r => ({ ...r, rowType: "견적가" as ReviewRowType }));
-    return reviewRows;
   })();
+
+  const appliedTotal = sumRows(appliedRows);
+
+  const compareLabel =
+    appliedTotal > 0 && estTotal > 0
+      ? appliedTotal < estTotal
+        ? `적용단가 (${appliedTotal.toLocaleString()}원) < 견적가 (${estTotal.toLocaleString()}원)`
+        : appliedTotal > estTotal
+          ? `적용단가 (${appliedTotal.toLocaleString()}원) > 견적가 (${estTotal.toLocaleString()}원)`
+          : "적용단가 = 견적가"
+      : "";
 
   const basisDefs: Array<{ key: string; label: string }> = [
     { key: "contract", label: "기계약단가" },
@@ -688,20 +663,21 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal,
                     <span className={`text-[10px] font-bold border rounded px-1 py-0 ${markBadge}`}>
                       {mark}
                     </span>
+                    <span className="text-[10px] text-slate-400 ml-1">
+                      · 좌측 체크박스로 종합단가 적용에 포함시킬 항목을 선택
+                    </span>
                   </p>
-                  <EstimateTable rows={brs.rows} setRows={brs.setRows} />
+                  <EstimateTable
+                    rows={brs.rows}
+                    setRows={brs.setRows}
+                    tableKey={key}
+                    selectedKeys={selectedKeys}
+                    onToggleSelect={(rowId) => toggleSelect(key, rowId)}
+                  />
                 </div>
               );
             });
           })()}
-
-          {/* 검토단가는 항상 마지막 번호로 표시 */}
-          <div>
-            <p className="text-xs font-medium text-slate-500 mb-2">
-              {basisDefs.filter(({ key }) => basisMarks[key] === "O" || basisMarks[key] === "△").length + 1}) 검토단가
-            </p>
-            <ReviewTable rows={reviewRows} setRows={setReviewRows} />
-          </div>
 
           <textarea
             value={reviewNotes}
@@ -716,7 +692,7 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal,
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">협의결과</label>
           {compareLabel && (
-            <div className={`mb-2 flex items-center gap-1.5 text-xs font-semibold ${revTotal < estTotal ? "text-emerald-700" : "text-rose-700"}`}>
+            <div className={`mb-2 flex items-center gap-1.5 text-xs font-semibold ${appliedTotal < estTotal ? "text-emerald-700" : "text-rose-700"}`}>
               <span className="text-slate-400">▶</span>
               {compareLabel}
             </div>
@@ -744,20 +720,14 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal,
             >
               {APPLIED_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
-            {appliedPlan === "종합단가 적용" && (
-              <>
-                <span className="text-slate-400 text-sm">—</span>
-                <select
-                  value={compositePlan}
-                  onChange={(e) => setCompositePlan(e.target.value)}
-                  className="border border-violet-300 rounded-md px-3 py-1.5 text-sm font-semibold text-violet-700 bg-violet-50/60 focus:outline-none focus:ring-2 focus:ring-violet-400/40"
-                >
-                  {COMPOSITE_SUB_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </>
-            )}
           </div>
-          <AppliedTable rows={appliedRows} />
+          {appliedPlan === "종합단가 적용" && composedRows.length === 0 ? (
+            <div className="border border-dashed border-slate-200 rounded-md p-6 text-center text-xs text-slate-400 bg-slate-50/40">
+              위 단가검토 테이블의 행 좌측 체크박스로 적용할 항목을 선택하세요.
+            </div>
+          ) : (
+            <AppliedTable rows={appliedRows} />
+          )}
         </div>
 
         {/* 첨부파일 */}

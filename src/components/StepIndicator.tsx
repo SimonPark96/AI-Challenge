@@ -12,9 +12,8 @@ interface Step {
 
 const STEPS: Step[] = [
   { number: "01", title: "단가 검토 요청", subtitle: "내역 및 업로드" },
-  { number: "02", title: "AI 자동 분석", subtitle: "자동 매칭 결과" },
-  { number: "03", title: "적정 단가 검토", subtitle: "공사 사례 비교" },
-  { number: "04", title: "결과 확정/연동", subtitle: "작업지시서 생성" },
+  { number: "02", title: "AI 자동 비교", subtitle: "분석 결과" },
+  { number: "03", title: "결과 확정/연동", subtitle: "작업지시서 생성" },
 ];
 
 function getStepPath(
@@ -24,8 +23,7 @@ function getStepPath(
   if (stepNum === 1) return "/request";
   if (!quotationId) return null;
   if (stepNum === 2) return `/analyze/${quotationId}`;
-  if (stepNum === 3) return `/review/${quotationId}`;
-  if (stepNum === 4) return `/confirm/${quotationId}`;
+  if (stepNum === 3) return `/confirm/${quotationId}`;
   return null;
 }
 
@@ -54,22 +52,31 @@ export function StepIndicator({ activeStep, quotationId, showDataTabs, dataTabsV
 
             return (
               <div key={step.number} className="flex items-center flex-1">
-                <div className="flex items-center gap-3 flex-1">
-                  <button
-                    type="button"
-                    disabled={!isNavigable}
-                    onClick={() => path && router.push(path)}
+                <button
+                  type="button"
+                  disabled={!isNavigable}
+                  onClick={() => path && router.push(path)}
+                  title={isNavigable ? `${step.title}으로 이동` : undefined}
+                  className={`flex items-center gap-3 flex-1 rounded-md p-1 -m-1 text-left transition-colors ${
+                    isActive
+                      ? "cursor-default"
+                      : isNavigable
+                        ? "cursor-pointer hover:bg-blue-50"
+                        : "cursor-not-allowed"
+                  }`}
+                >
+                  <span
+                    aria-hidden
                     className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-semibold shrink-0 transition-colors ${
                       isActive
-                        ? "bg-blue-600 text-white cursor-default"
+                        ? "bg-blue-600 text-white"
                         : isNavigable
-                          ? "bg-blue-100 text-blue-600 hover:bg-blue-200 cursor-pointer"
-                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-slate-100 text-slate-400"
                     }`}
-                    title={isNavigable ? `${step.title}으로 이동` : undefined}
                   >
                     {isPast ? <CheckCircle2 size={16} /> : step.number}
-                  </button>
+                  </span>
                   <div className="min-w-0">
                     <div
                       className={`text-sm font-medium ${
@@ -86,7 +93,7 @@ export function StepIndicator({ activeStep, quotationId, showDataTabs, dataTabsV
                       {step.subtitle}
                     </div>
                   </div>
-                </div>
+                </button>
                 {i < STEPS.length - 1 && (
                   <ChevronRight
                     className="text-slate-300 shrink-0 mx-2"

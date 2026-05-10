@@ -16,9 +16,9 @@ const SYSTEM_PROMPT = `당신은 건설·자재 단가 검토 전문가입니다
 (예: "전체 견적은 시장 단가 대비 소폭 높은 수준이며, 일부 항목에서 협상 여지가 확인됩니다.")
 
 ## 항목별 단가 분석
-- 시장 대비 **비싼 항목**(편차 +10% 이상)을 항목명과 편차(%)와 함께 구체적으로 나열합니다.
-- 시장 대비 **저렴한 항목**(편차 -10% 이하)을 나열합니다.
-- 매칭 신뢰도 50% 미만 또는 매칭 실패 항목은 항목명과 함께 "검증 필요"로 명시합니다.
+- 시장 대비 **비싼 항목**(편차 +10% 이상)을 제목으로 하고 볼드체로 적용. 그 하위에 새로운 뎁스로 항목명과 편차(%)와 함께 구체적으로 나열합니다.
+- 시장 대비 **저렴한 항목**(편차 -10% 이하)을 제목으로 하고 볼드체 적용. 그 하위에 새로운 뎁스로 항목명과 편차(%)와 함께 구체적으로 나열합니다.
+- 매칭 신뢰도 50% 미만 또는 매칭 실패 항목은 항목명과 함께 "검증 필요"로 명시하고 볼드체 적용.
 - 특이사항 없으면 한 줄로 "모든 항목이 시장 단가 적정 범위 내에 있습니다." 라고 씁니다.
 
 ## 단가 합계 비교
@@ -276,10 +276,13 @@ export async function POST(
     ) {
       const dev =
         ((partnerTotal - summary.totalCost) / summary.totalCost) * 100;
-      const saving =
-        partnerTotal - summary.totalCost;
+      const saving = partnerTotal - summary.totalCost;
       totalBlock.push(
-        `- 협력사 vs 사내 DB 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}% (협력사가 ${Math.abs(saving).toLocaleString()}원 ${saving > 0 ? "더 비쌈" : "더 저렴"})`
+        `- 협력사 vs 사내 DB 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(
+          1
+        )}% (협력사가 ${Math.abs(saving).toLocaleString()}원 ${
+          saving > 0 ? "더 비쌈" : "더 저렴"
+        })`
       );
     }
   } else {
@@ -299,11 +302,17 @@ export async function POST(
       const dev = ((partnerTotal - itemMarketTotal) / itemMarketTotal) * 100;
       const saving = partnerTotal - itemMarketTotal;
       totalBlock.push(
-        `- 협력사 vs AI 매칭 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(1)}% (협력사가 ${Math.abs(saving).toLocaleString()}원 ${saving > 0 ? "더 비쌈" : "더 저렴"})`
+        `- 협력사 vs AI 매칭 편차: ${dev > 0 ? "+" : ""}${dev.toFixed(
+          1
+        )}% (협력사가 ${Math.abs(saving).toLocaleString()}원 ${
+          saving > 0 ? "더 비쌈" : "더 저렴"
+        })`
       );
     }
   } else {
-    totalBlock.push("[AI 매칭 단가 합계] 매칭된 항목 없음 — AI 매칭 단가 비교 생략.");
+    totalBlock.push(
+      "[AI 매칭 단가 합계] 매칭된 항목 없음 — AI 매칭 단가 비교 생략."
+    );
   }
 
   // 최적 단가 판단에 필요한 요약 힌트 제공
@@ -330,14 +339,24 @@ export async function POST(
   if (refs.length > 0) {
     refs.forEach((r) => {
       hintLines.push(
-        `- ${r.label}: ${r.total.toLocaleString()}원 / 협력사 대비 ${r.dev > 0 ? "+" : ""}${r.dev.toFixed(1)}% (${r.dev < 0 ? "협력사보다 저렴 → 절감 가능" : "협력사보다 비쌈 → 협력사 경쟁력 있음"})`
+        `- ${r.label}: ${r.total.toLocaleString()}원 / 협력사 대비 ${
+          r.dev > 0 ? "+" : ""
+        }${r.dev.toFixed(1)}% (${
+          r.dev < 0
+            ? "협력사보다 저렴 → 절감 가능"
+            : "협력사보다 비쌈 → 협력사 경쟁력 있음"
+        })`
       );
     });
-    const cheapest = refs.filter((r) => r.dev < 0).sort((a, b) => a.dev - b.dev)[0];
+    const cheapest = refs
+      .filter((r) => r.dev < 0)
+      .sort((a, b) => a.dev - b.dev)[0];
     if (cheapest) {
       const saving = (partnerTotal ?? 0) - cheapest.total;
       hintLines.push(
-        `- 가장 절감 효과 큰 단가: ${cheapest.label} (${Math.abs(cheapest.dev).toFixed(1)}% 절감, 약 ${saving.toLocaleString()}원 차이)`
+        `- 가장 절감 효과 큰 단가: ${cheapest.label} (${Math.abs(
+          cheapest.dev
+        ).toFixed(1)}% 절감, 약 ${saving.toLocaleString()}원 차이)`
       );
     }
   } else {

@@ -3,11 +3,11 @@
 import { useRequestStore, type AnalyzeTab } from "@/lib/stores/request-store";
 
 const TABS: { key: AnalyzeTab; label: string }[] = [
-  { key: "db",           label: "DB단가 견적" },
-  { key: "actual",       label: "실적단가 견적" },
-  { key: "bid",          label: "비교 견적" },
-  { key: "ai-matching",  label: "AI매칭단가" },
-  { key: "summary",      label: "종합" },
+  { key: "db", label: "사내 DB 단가" },
+  { key: "actual", label: "사내 실적 단가" },
+  { key: "bid", label: "비교 견적" },
+  { key: "ai-matching", label: "일위대가 검토" },
+  { key: "summary", label: "종합" },
 ];
 
 export function AnalyzeBrowserTabs() {
@@ -15,7 +15,7 @@ export function AnalyzeBrowserTabs() {
   const setTab = useRequestStore((s) => s.setActiveAnalyzeTab);
 
   return (
-    <div className="flex items-end gap-1 border-b border-slate-300 bg-slate-100 px-4 pt-2 overflow-x-auto">
+    <div className="flex items-end gap-1 border-b border-slate-300 bg-slate-100 px-4 pt-2">
       {TABS.map((tab) => {
         const isActive = active === tab.key;
         return (

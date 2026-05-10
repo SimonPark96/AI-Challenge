@@ -1,5 +1,9 @@
 import { prisma } from "../prisma";
-import { buildEmbeddingText, cosineSimilarity, embedTexts } from "../openai/embed";
+import {
+  buildEmbeddingTextWithSpec,
+  cosineSimilarity,
+  embedTexts,
+} from "../openai/embed";
 
 const MAX_CANDIDATES = 2000;
 const DETERMINISTIC_WEIGHT = 0.6;
@@ -57,11 +61,14 @@ export async function matchItemsToConfidential(
     }));
   }
 
-  // 모든 아이템 임베딩을 단일 배치 API 호출로 처리 (N번 → 1번)
-  const cleanNames = items.map((it) => buildEmbeddingText(it.itemName.trim()));
+  // 모든 아이템 임베딩을 단일 배치 API 호출로 처리 (N번 → 1번).
+  // ConfidentialPrice 인덱스가 "name + spec" 형식이므로 query 도 동일하게 합쳐 임베딩.
+  const queryTexts = items.map((it) =>
+    buildEmbeddingTextWithSpec(it.itemName, it.spec)
+  );
   let queryVecs: (number[] | null)[] = new Array(items.length).fill(null);
   try {
-    const vecs = await embedTexts(cleanNames);
+    const vecs = await embedTexts(queryTexts);
     queryVecs = vecs;
   } catch {
     /* 임베딩 실패 시 deterministic 스코어만 사용 */
@@ -117,7 +124,10 @@ export async function matchItemsToConfidential(
       };
     }
 
-    const confidence = Math.max(0, Math.min(1, queryVec ? best.cosine : best.deterministic));
+    // 신뢰도 = 랭킹에 사용한 combined 점수와 동일 (cos + 0.6×det + acronym 보너스)을
+    // 0..1 로 클램프. cosine 단독을 노출하면 deterministic·acronym 가중치로 잘 매칭된
+    // 케이스도 신뢰도가 낮게 보이는 비일관성이 있어 통일.
+    const confidence = Math.max(0, Math.min(1, best.combined));
     const partnerPrice = it.unitPrice ?? null;
     const confPrice = best.row.totalCost;
     const deviationPct =

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { StepIndicator } from "@/components/StepIndicator";
 import { AnalyzePageClient } from "@/components/AnalyzePageClient";
@@ -130,7 +130,7 @@ export default async function AnalyzeByIdPage({
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-4">
       <header>
-        <h1 className="text-2xl font-bold text-slate-800">02. AI 자동 분석</h1>
+        <h1 className="text-2xl font-bold text-slate-800">02. AI 자동 비교</h1>
         <p className="text-sm text-slate-500 mt-1">
           AI가 협력사 견적 항목을 시장단가·사내 DB·실적단가와 자동 매칭한 결과입니다.
         </p>
@@ -139,6 +139,8 @@ export default async function AnalyzeByIdPage({
       <StepIndicator activeStep={2} quotationId={qid} />
 
       <AnalyzePageClient
+        forceInitialTab="db"
+        showConfirmTrigger
         quotation={{
           id: quotation.id,
           fileName: quotation.fileName,
@@ -216,12 +218,6 @@ export default async function AnalyzeByIdPage({
           className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
         >
           <ChevronLeft size={16} /> 다시 요청
-        </Link>
-        <Link
-          href={`/confirm/${quotation.id}`}
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded text-sm font-medium"
-        >
-          결과 확정 <ChevronRight size={16} />
         </Link>
       </div>
     </div>

@@ -3,9 +3,26 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, FileSearch, Database, Send, ChevronDown, Database as DbIcon, BarChart2, FileText } from "lucide-react";
+import {
+  LayoutGrid,
+  FileSearch,
+  Database,
+  Send,
+  ChevronDown,
+  Database as DbIcon,
+  BarChart2,
+  FileText,
+  Sparkles,
+} from "lucide-react";
 
-const REVIEW_PATHS = ["/request", "/analyze", "/review", "/confirm", "/price-review", "/bid-request"];
+const REVIEW_PATHS = [
+  "/request",
+  "/analyze",
+  "/review",
+  "/confirm",
+  "/price-review",
+  "/bid-request",
+];
 
 function isOnReviewPage(pathname: string) {
   return REVIEW_PATHS.some(
@@ -13,10 +30,14 @@ function isOnReviewPage(pathname: string) {
   );
 }
 
-const DATA_SUB_ITEMS: { href: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
+const DATA_SUB_ITEMS: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}[] = [
   { href: "/price-review/db", label: "DB단가 견적", icon: DbIcon },
   { href: "/price-review/actual", label: "실적단가 견적", icon: BarChart2 },
-  { href: "/bid-request", label: "3사 견적 요청", icon: Send },
+  { href: "/bid-request", label: "비교 견적 요청", icon: Send },
 ];
 
 interface MenuItem {
@@ -26,7 +47,7 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
-  { href: "/dashboard", label: "대시보드", icon: LayoutGrid },
+  { href: "/dashboard", label: "검토 요청 목록", icon: LayoutGrid },
   { href: "/db", label: "DB 관리", icon: Database },
 ];
 
@@ -41,10 +62,14 @@ export function Sidebar() {
   const onReview = isOnReviewPage(pathname);
 
   const reviewActive =
-    pathname === "/request" || pathname.startsWith("/request/") ||
-    pathname.startsWith("/analyze/") || pathname.startsWith("/review/") ||
-    pathname.startsWith("/confirm/") || pathname.startsWith("/price-review/") ||
-    pathname === "/bid-request" || pathname.startsWith("/bid-request/");
+    pathname === "/request" ||
+    pathname.startsWith("/request/") ||
+    pathname.startsWith("/analyze/") ||
+    pathname.startsWith("/review/") ||
+    pathname.startsWith("/confirm/") ||
+    pathname.startsWith("/price-review/") ||
+    pathname === "/bid-request" ||
+    pathname.startsWith("/bid-request/");
 
   return (
     <aside className="w-72 shrink-0 bg-[#001E62] text-slate-100 flex flex-col">
@@ -55,15 +80,20 @@ export function Sidebar() {
           width={3993}
           height={1583}
           priority
-          className="h-7 w-auto brightness-0 invert opacity-95"
+          className="h-9 w-auto brightness-0 invert opacity-95"
         />
-        <div className="text-base font-semibold text-white mt-2 leading-tight truncate">
-          AI 자동 단가 검토
+        <div className="flex items-center gap-2 mt-3">
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br from-sky-400/30 to-blue-500/30 ring-1 ring-white/25 text-sky-200 shrink-0">
+            <Sparkles size={14} />
+          </span>
+          <div className="text-sm font-semibold text-white leading-tight truncate">
+            AI 자동 단가 검토 서비스
+          </div>
         </div>
       </div>
 
       <nav className="flex-1 py-4 px-3 space-y-0.5">
-        {/* 대시보드 */}
+        {/* 검토 요청 목록 */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors ${
@@ -73,7 +103,7 @@ export function Sidebar() {
           }`}
         >
           <LayoutGrid size={16} />
-          <span>대시보드</span>
+          <span>검토 요청 목록</span>
         </Link>
 
         {/* 단가 검토 요청 (확장형) */}
@@ -90,7 +120,9 @@ export function Sidebar() {
             <span className="flex-1">단가 검토 요청</span>
             <ChevronDown
               size={14}
-              className={`transition-transform duration-200 ${onReview ? "rotate-0" : "-rotate-90"}`}
+              className={`transition-transform duration-200 ${
+                onReview ? "rotate-0" : "-rotate-90"
+              }`}
             />
           </Link>
 

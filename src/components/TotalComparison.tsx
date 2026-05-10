@@ -210,11 +210,6 @@ export function TotalComparison({
               매칭 자료: <span className="font-medium">{summary.name}</span>
               {summary.spec ? ` · ${summary.spec}` : ""}
               {summary.unit ? ` / ${summary.unit}` : ""}
-              {summary.sourceFile
-                ? ` · 출처: ${summary.sourceFile}${
-                    summary.sourceVia ? ` (${summary.sourceVia})` : ""
-                  }`
-                : ""}
             </>
           ) : (
             "매칭 자료가 선택되지 않았습니다."
@@ -231,35 +226,35 @@ export function TotalComparison({
                 항목
               </th>
               <ColumnHeader rowSpan={2} label="협력사 견적" subLabel="기준값" accent="partner" />
-              <ColumnHeader rowSpan={2} label="실적 단가" subLabel={summarySubLabel} accent="summary" />
               <ColumnHeader rowSpan={2} label="사내 DB 단가" subLabel={confSubLabel} accent="conf" />
+              <ColumnHeader rowSpan={2} label="사내 실적 단가" subLabel={summarySubLabel} accent="summary" />
               <th
                 colSpan={displayCompetitorCols.length}
-                className="text-center pt-2 pb-1.5 px-3 bg-amber-50/60 border-l-2 border-r-2 border-t border-amber-300/60"
+                className="text-center pt-2 pb-1.5 px-3 border-l border-r border-t border-slate-200"
               >
                 <div className="flex items-center justify-center gap-1.5">
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-amber-100 text-amber-600 ring-1 ring-amber-200/60">
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded ${columnAccents.competitor.iconWrap}`}>
                     <Send size={11} />
                   </span>
-                  <span className="text-sm font-semibold text-slate-700">3사 견적 단가</span>
+                  <span className="text-sm font-semibold text-slate-700">비교 견적</span>
                 </div>
               </th>
-              <ColumnHeader rowSpan={2} label="AI 매칭 단가" subLabel={itemSubLabel} accent="item" />
+              <ColumnHeader rowSpan={2} label="일위대가 검토" subLabel={itemSubLabel} accent="item" />
             </tr>
-            {/* 2행: 3사 견적 서브 헤더 */}
+            {/* 2행: 비교 견적 서브 헤더 */}
             <tr>
               {displayCompetitorCols.map((bid, i) => (
                 <th
                   key={bid.id !== 0 ? bid.id : `empty-${i}`}
-                  className={`text-right py-1.5 px-3 bg-amber-50/50 border-b border-amber-200/60
-                    ${i === 0 ? "border-l-2 border-l-amber-300/60" : ""}
-                    ${i === displayCompetitorCols.length - 1 ? "border-r-2 border-r-amber-300/60" : ""}
+                  className={`text-center py-1.5 px-3 border-b border-slate-200
+                    ${i === 0 ? "border-l border-l-slate-200" : ""}
+                    ${i === displayCompetitorCols.length - 1 ? "border-r border-r-slate-200" : ""}
                   `}
                 >
-                  <div className="text-xs font-semibold text-amber-900 truncate max-w-[120px]">
+                  <div className="text-xs font-semibold text-slate-700 truncate max-w-[120px] mx-auto">
                     {bid.id !== 0 ? (bid.companyName ?? `업체 ${i + 1}`) : "선택된 견적 없음"}
                   </div>
-                  <div className="text-[10px] font-normal text-amber-500 mt-0.5">
+                  <div className="text-[10px] font-normal text-slate-400 mt-0.5">
                     {bid.id !== 0 ? "수령 견적" : "—"}
                   </div>
                 </th>
@@ -272,8 +267,8 @@ export function TotalComparison({
                 key={r.label}
                 label={r.label}
                 partner={r.partner}
-                summary={r.summary}
                 conf={null}
+                summary={r.summary}
                 competitors={r.competitors}
                 item={r.item}
               />
@@ -340,15 +335,15 @@ function ColumnHeader({
 function BodyRow({
   label,
   partner,
-  summary,
   conf,
+  summary,
   competitors,
   item,
 }: {
   label: string;
   partner: number | null;
-  summary: number | null;
   conf: number | null;
+  summary: number | null;
   competitors: (number | null)[];
   item: number | null;
 }) {
@@ -358,14 +353,14 @@ function BodyRow({
         {label}
       </td>
       <BodyCell value={partner} />
-      <BodyCell value={summary} />
       <BodyCell value={conf} />
+      <BodyCell value={summary} />
       {competitors.map((c, i) => (
         <td
           key={i}
-          className={`py-2 px-3 text-right bg-amber-50/30
-            ${i === 0 ? "border-l-2 border-l-amber-300/50" : ""}
-            ${i === competitors.length - 1 ? "border-r-2 border-r-amber-300/50" : ""}
+          className={`py-2 px-3 text-right
+            ${i === 0 ? "border-l border-l-slate-200" : ""}
+            ${i === competitors.length - 1 ? "border-r border-r-slate-200" : ""}
           `}
         >
           <div className="font-mono tabular-nums text-slate-800">{fmt(c)}</div>
@@ -415,8 +410,8 @@ function TotalRow({
         합계
       </td>
       <TotalCell value={partnerTotal} dev={null} tone="neutral" isBase />
-      <TotalCell value={summaryTotal} dev={summaryDev} tone={summaryTone} />
       <TotalCell value={confTotal} dev={confDev} tone={confTone} />
+      <TotalCell value={summaryTotal} dev={summaryDev} tone={summaryTone} />
       {competitorCols.map((c, i) => (
         <TotalCell
           key={i}
@@ -424,8 +419,8 @@ function TotalRow({
           dev={c.dev}
           tone={c.tone}
           extraClass={`
-            ${i === 0 ? "border-l-2 border-l-amber-300/60" : ""}
-            ${i === competitorCols.length - 1 ? "border-r-2 border-r-amber-300/60" : ""}
+            ${i === 0 ? "border-l border-l-slate-200" : ""}
+            ${i === competitorCols.length - 1 ? "border-r border-r-slate-200" : ""}
           `}
         />
       ))}
@@ -493,15 +488,15 @@ function buildRecommendation(
   itemDev: number | null,
 ): Recommendation {
   const refs = [
-    { label: summaryName ? `실적 단가(${summaryName})` : "실적 단가", dev: summaryDev },
     { label: "사내 DB 단가", dev: confDev },
-    { label: "3사 견적 단가", dev: competitorDev },
-    { label: "AI 매칭 단가", dev: itemDev },
+    { label: summaryName ? `사내 실적 단가(${summaryName})` : "사내 실적 단가", dev: summaryDev },
+    { label: "비교 견적", dev: competitorDev },
+    { label: "일위대가 검토", dev: itemDev },
   ].filter((r): r is { label: string; dev: number } => r.dev !== null);
 
   if (refs.length === 0 || partnerTotal === null) {
     return {
-      text: "비교 가능한 단가 자료가 없어 추천 단가를 산출하기 어렵습니다. 사내 DB 매칭, 실적 단가 선택, 3사 견적 수령 후 재분석을 권장합니다.",
+      text: "비교 가능한 단가 자료가 없어 추천 단가를 산출하기 어렵습니다. 사내 DB 매칭, 사내 실적 단가 선택, 비교 견적 수령 후 재분석을 권장합니다.",
       accent: "slate",
       bestRef: null,
       savingsPct: null,

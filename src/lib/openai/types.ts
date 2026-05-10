@@ -12,6 +12,7 @@ export interface ParsedQuoteMeta {
   requester: string | null;
   partnerName: string | null;
   workType: string | null;
+  spec: string | null;
   location: string | null;
 }
 

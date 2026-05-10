@@ -148,8 +148,10 @@ export async function matchToMarketPrice(
   );
   const chosen = priced ?? top;
 
-  const confidence =
-    chosen.method === "embedding" ? chosen.cosine : chosen.deterministic;
+  // 신뢰도 = 랭킹에 사용한 combined 점수와 동일 (cos + 0.6×det + acronym 보너스)을
+  // 0..1 로 클램프. cosine 단독을 노출하면 deterministic·acronym 가중치로 잘 매칭된
+  // 케이스도 신뢰도가 낮게 보이는 비일관성이 있어 통일.
+  const confidence = Math.max(0, Math.min(1, chosen.combined));
 
   const result: MatchResult = {
     source: chosen.row.source,

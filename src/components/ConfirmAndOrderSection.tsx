@@ -8,7 +8,6 @@ import {
   FileSpreadsheet,
   Lock,
 } from "lucide-react";
-import { useRequestStore } from "@/lib/stores/request-store";
 
 interface Props {
   quotationId: number;
@@ -16,7 +15,7 @@ interface Props {
 }
 
 /**
- * 04 페이지의 "검토 결과 확정 + 작업지시서 생성" 영역.
+ * 03 결과 확정/연동 페이지의 "검토 결과 확정 + 작업지시서 생성" 영역.
  *
  * - 체크박스는 *의도 표시*. DB 의 status 는 변경하지 않음.
  * - 체크된 상태에서만 작업지시서 생성 카드가 활성화되어 클릭 가능.
@@ -24,26 +23,19 @@ interface Props {
  * - 이미 confirmed (= 결재요청 완료) 면 체크박스가 잠긴 상태로 항상 체크.
  */
 export function ConfirmAndOrderSection({ quotationId, status }: Props) {
-  const activeTab = useRequestStore((s) => s.activeAnalyzeTab);
-  const isOnSummary = activeTab === "summary";
   const isConfirmed = status === "confirmed";
   const [intentChecked, setIntentChecked] = useState<boolean>(isConfirmed);
   const checked = isConfirmed || intentChecked;
 
   return (
-    <section className={`bg-white rounded-lg border p-6 space-y-4 transition ${isOnSummary ? "border-slate-200" : "border-slate-100 opacity-50 pointer-events-none select-none"}`}>
-      {!isOnSummary && (
-        <div className="text-xs text-slate-400 text-center pb-1">
-          종합 탭에서만 결과를 확정할 수 있습니다.
-        </div>
-      )}
+    <section className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <div>
         <h2 className="text-base font-semibold text-slate-800">
           검토 결과 확정 및 작업지시서 생성
         </h2>
         <p className="text-xs text-slate-500 mt-1 leading-relaxed">
           검토 결과 확정에 체크하면 작업지시서 생성으로 진행할 수 있습니다.
-          실제 확정(대시보드 &ldquo;완료&rdquo; 탭 이동) 은 작업지시서 페이지의{" "}
+          실제 확정(검토 요청 목록 &ldquo;완료&rdquo; 탭 이동) 은 작업지시서 페이지의{" "}
           <span className="font-medium">[결재요청]</span> 버튼에서 이루어집니다.
         </p>
       </div>

@@ -36,6 +36,7 @@ THK 라는 단어는 두께를 의미하며 예: THK10 = 10T = 두께 10.
     "requester":   "요청자 or null",
     "partnerName": "협력사명 or null",
     "workType":    "공종 or null",
+    "spec":        "공사 규격/사양 or null",
     "location":    "시공위치 or null"
   },
   "costSummary": {
@@ -154,6 +155,7 @@ async function parseViaAssistants(file: File): Promise<ParsedQuote> {
     requester: strOrNull(parsed.meta?.requester),
     partnerName: strOrNull(parsed.meta?.partnerName),
     workType: strOrNull(parsed.meta?.workType),
+    spec: strOrNull(parsed.meta?.spec),
     location: strOrNull(parsed.meta?.location),
   };
 

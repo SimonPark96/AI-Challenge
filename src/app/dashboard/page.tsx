@@ -8,7 +8,7 @@ export default function DashboardPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <header className="flex justify-between items-start gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">대시보드</h1>
+          <h1 className="text-2xl font-bold text-slate-800">검토 요청 목록</h1>
           <p className="text-sm text-slate-500 mt-1">
             진행 중 / 완료된 단가 분석 요청 리스트.
           </p>

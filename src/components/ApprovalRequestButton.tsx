@@ -11,7 +11,7 @@ interface Props {
 
 /**
  * 작업지시서 페이지 상단의 [결재요청] 버튼.
- * 클릭 시 quotation status -> confirmed 로 변경 후 대시보드로 이동.
+ * 클릭 시 quotation status -> confirmed 로 변경 후 검토 요청 목록으로 이동.
  * 이미 confirmed 인 경우 "결재요청 완료" 배지로 표시.
  */
 export function ApprovalRequestButton({ quotationId, status }: Props) {

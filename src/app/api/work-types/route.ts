@@ -88,7 +88,10 @@ export async function POST(req: Request) {
 
   const name = String(body.name ?? "").trim();
   if (!name) {
-    return NextResponse.json({ error: "공종명이 필요합니다." }, { status: 400 });
+    return NextResponse.json(
+      { error: "공종명이 필요합니다." },
+      { status: 400 }
+    );
   }
 
   const parentId = body.parentId ? Number(body.parentId) : null;

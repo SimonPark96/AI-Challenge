@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -6,6 +7,18 @@ import { WorkOrderForm } from "@/components/WorkOrderForm";
 import { ApprovalRequestButton } from "@/components/ApprovalRequestButton";
 
 export const dynamic = "force-dynamic";
+
+const DOC_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+function genDocNumber(): string {
+  const buf = randomBytes(8);
+  let out = "";
+  for (let i = 0; i < 8; i++) out += DOC_CHARS[buf[i] % DOC_CHARS.length];
+  return out;
+}
+
+// 사이드바의 현재 사용자와 동기화 (Sidebar.tsx 의 CURRENT_USER 와 동일)
+const CURRENT_USER_NAME = "박현우";
 
 export default async function WorkOrderPage({
   params,
@@ -43,19 +56,8 @@ export default async function WorkOrderPage({
   // 오늘 날짜 (YYYY-MM-DD)
   const today = new Date().toISOString().slice(0, 10);
 
-  // 공사 내용: 상위 항목명 나열
-  const topItems = quotation.items.slice(0, 8);
-  const workContent =
-    topItems.length > 0
-      ? topItems
-          .map((it) =>
-            [it.itemName, it.spec].filter(Boolean).join(" ") +
-            (it.quantity ? ` (${it.quantity}${it.unit ?? ""})` : "")
-          )
-          .join("\n")
-      : "";
-
   // 대표수량/단가: 항목별 수량 × 단가 요약
+  const topItems = quotation.items.slice(0, 8);
   const representativeQty =
     topItems.length > 0
       ? topItems
@@ -72,13 +74,9 @@ export default async function WorkOrderPage({
           .join("\n")
       : "";
 
-  // 협력사명 (receivedBid 또는 priceSummary 에서 추출 시도)
-  const partnerBid = await prisma.receivedBid.findFirst({
-    where: { bidRequest: { quotationId: qid } },
-    orderBy: { createdAt: "asc" },
-    select: { companyName: true },
-  });
-  const contractName = partnerBid?.companyName ?? "";
+  // 협력사명: 견적서 엑셀(시트1) 추출 시 meta.partnerName 에 저장됨
+  const contractName =
+    typeof meta?.partnerName === "string" ? meta.partnerName : "";
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-5">
@@ -105,10 +103,11 @@ export default async function WorkOrderPage({
         initialProjectName={projectName}
         initialAmount={totalQuotedPrice > 0 ? totalQuotedPrice : null}
         initialTitle={projectName ? `${projectName} 작업지시서` : ""}
-        initialWorkContent={workContent}
         initialRepresentativeQty={representativeQty}
         initialIssueDate={today}
         initialContractName={contractName}
+        initialDocNumber={genDocNumber()}
+        initialIssuer={CURRENT_USER_NAME}
       />
     </div>
   );

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { embedTexts } from "@/lib/openai/embed";
+import { buildEmbeddingTextWithSpec, embedTexts } from "@/lib/openai/embed";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -187,9 +187,7 @@ export async function POST(req: Request) {
   let embeddedCount = 0;
   let embedError: string | null = null;
   try {
-    const texts = created.map((p) =>
-      p.spec ? `${p.name.trim()} ${p.spec.trim()}` : p.name.trim()
-    );
+    const texts = created.map((p) => buildEmbeddingTextWithSpec(p.name, p.spec));
     const vectors = await embedTexts(texts);
     await prisma.$transaction(
       created.map((p, i) =>

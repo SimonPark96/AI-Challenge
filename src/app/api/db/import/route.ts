@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { embedTexts } from "@/lib/openai/embed";
+import { buildEmbeddingTextWithSpec, embedTexts } from "@/lib/openai/embed";
 import { getOpenAIClient } from "@/lib/openai/client";
 
 export const runtime = "nodejs";
@@ -392,15 +392,6 @@ async function parseImage(file: File): Promise<ParseResult> {
   };
 }
 
-function buildSummaryEmbeddingText(
-  name: string,
-  spec: string | null
-): string {
-  const n = name.trim();
-  const s = spec?.trim() ?? "";
-  return s ? `${n} ${s}` : n;
-}
-
 export async function POST(req: Request) {
   let formData: FormData;
   try {
@@ -492,7 +483,7 @@ export async function POST(req: Request) {
   let embeddedCount = 0;
   let embedError: string | null = null;
   try {
-    const texts = created.map((p) => buildSummaryEmbeddingText(p.name, p.spec));
+    const texts = created.map((p) => buildEmbeddingTextWithSpec(p.name, p.spec));
     const vectors = await embedTexts(texts);
     await prisma.$transaction(
       created.map((p, i) =>

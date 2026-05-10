@@ -10,7 +10,7 @@ import {
 
 export function RequestFormSection() {
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-6">
+    <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-4">
       <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
         <span>📋</span> 단가 검토 요청 입력
       </h2>
@@ -18,14 +18,14 @@ export function RequestFormSection() {
       <SectionA />
       <SectionB />
       <SectionC />
-      <NotesField />
+      {/* <NotesField /> */}
     </div>
   );
 }
 
 function SectionTitle({ badge, title }: { badge: string; title: string }) {
   return (
-    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
+    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
       <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-50 text-blue-600 text-[11px]">
         {badge}
       </span>
@@ -76,11 +76,11 @@ function SectionA() {
   return (
     <div>
       <SectionTitle badge="A" title="요청 기본 정보" />
-      <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
+      <p className="text-[11px] text-slate-400 mb-2 leading-relaxed">
         공사명 + 규격 입력 시 PriceSummary 의 가장 유사한 자료가 자동 매칭되어
         합계 비교에 사용됩니다.
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Field label="공종">
           <input
             value={form.workType}
@@ -89,11 +89,7 @@ function SectionA() {
             className={inputClass()}
           />
         </Field>
-        <Field
-          label="공사명"
-          required
-          hint="자동 매칭의 핵심 키"
-        >
+        <Field label="공사명" required>
           <input
             value={form.projectName}
             onChange={upd("projectName")}
@@ -101,7 +97,7 @@ function SectionA() {
             className={inputClass()}
           />
         </Field>
-        <Field label="규격" hint="자동 매칭 보조 키">
+        <Field label="규격">
           <input
             value={form.spec}
             onChange={upd("spec")}
@@ -366,7 +362,7 @@ function SectionC() {
   return (
     <div>
       <SectionTitle badge="C" title="단가 정보 (총 합계)" />
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <Field label="협력사 제시 단가 (원)">
           <input
             type="number"

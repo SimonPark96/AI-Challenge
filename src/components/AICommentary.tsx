@@ -30,6 +30,7 @@ function parseCommentary(text: string): React.ReactNode {
 
   lines.forEach((line, i) => {
     const trimmed = line.trim();
+    const indent = line.length - line.trimStart().length;
 
     if (!trimmed) {
       elements.push(<div key={i} className="h-2" />);
@@ -58,27 +59,52 @@ function parseCommentary(text: string): React.ReactNode {
       );
     } else if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
       const content = trimmed.slice(2);
-      elements.push(
-        <div key={i} className="flex items-start gap-2.5 ml-2 my-0.5">
-          <span className="mt-[0.45rem] w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-          <p className="text-sm text-slate-700 leading-relaxed">
-            {renderInline(content)}
-          </p>
-        </div>
-      );
-    } else if (/^\d+\./.test(trimmed)) {
-      const match = trimmed.match(/^(\d+)\.\s+(.*)/);
-      if (match) {
+      const isNested = indent >= 2;
+      if (isNested) {
         elements.push(
-          <div key={i} className="flex items-start gap-2.5 ml-2 my-0.5">
-            <span className="text-xs font-bold text-blue-500 shrink-0 mt-0.5 w-4">
-              {match[1]}.
-            </span>
-            <p className="text-sm text-slate-700 leading-relaxed">
-              {renderInline(match[2])}
+          <div key={i} className="pl-12 my-0.5">
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {renderInline(content)}
             </p>
           </div>
         );
+      } else {
+        elements.push(
+          <div key={i} className="flex items-start gap-2 pl-6 my-0.5">
+            <span className="mt-[0.45rem] w-1 h-1 rounded-full bg-slate-300 shrink-0" />
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {renderInline(content)}
+            </p>
+          </div>
+        );
+      }
+    } else if (/^\d+\./.test(trimmed)) {
+      const match = trimmed.match(/^(\d+)\.\s+(.*)/);
+      if (match) {
+        const isNested = indent >= 2;
+        if (isNested) {
+          elements.push(
+            <div key={i} className="pl-12 my-0.5">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                <span className="text-slate-400 mr-1.5 tabular-nums">
+                  {match[1]}.
+                </span>
+                {renderInline(match[2])}
+              </p>
+            </div>
+          );
+        } else {
+          elements.push(
+            <div key={i} className="flex items-start gap-2 pl-6 my-0.5">
+              <span className="text-[10px] font-bold text-slate-400 shrink-0 mt-0.5 w-4 tabular-nums">
+                {match[1]}.
+              </span>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {renderInline(match[2])}
+              </p>
+            </div>
+          );
+        }
       }
     } else {
       elements.push(

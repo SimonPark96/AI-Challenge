@@ -44,7 +44,9 @@ export default function RequestPage() {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-4">
       <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-800">01. 단가 검토 요청</h1>
+        <h1 className="text-2xl font-bold text-slate-800">
+          01. 단가 검토 요청
+        </h1>
         <button
           type="button"
           onClick={onReset}
@@ -59,11 +61,11 @@ export default function RequestPage() {
 
       <StepIndicator activeStep={1} />
 
-      <section className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
+      <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <span>📄</span> 협력사 견적서 / 일위대가 업로드
+              <span>📄</span> 협력사 견적 요청
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               파일을 올리면 AI가 헤더 정보·라인 아이템·재료비/노무비/경비 합계를
@@ -96,7 +98,7 @@ export default function RequestPage() {
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles size={16} />
-          {submitting ? "분석 중..." : "AI 자동 분석"}
+          {submitting ? "분석 중..." : "AI 자동 비교"}
         </button>
       </div>
 

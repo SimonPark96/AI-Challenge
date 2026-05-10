@@ -9,13 +9,9 @@ interface WorkOrderData {
   writer: string;
   docNumber: string;
   issueDate: string;
-  partnerApprovalDate: string;
   projectName: string;
   issuer: string;
   contractName: string;
-  receiver: string;
-  issuerSignature: string;
-  receiverSignature: string;
   title: string;
   workContent: string;
   representativeQty: string;
@@ -37,35 +33,33 @@ interface Props {
   initialProjectName?: string;
   initialAmount?: number | null;
   initialTitle?: string;
-  initialWorkContent?: string;
   initialRepresentativeQty?: string;
   initialIssueDate?: string;
   initialContractName?: string;
+  initialDocNumber?: string;
+  initialIssuer?: string;
 }
 
 export function WorkOrderForm({
   initialProjectName,
   initialAmount,
   initialTitle,
-  initialWorkContent,
   initialRepresentativeQty,
   initialIssueDate,
   initialContractName,
+  initialDocNumber,
+  initialIssuer,
 }: Props) {
   const [data, setData] = useState<WorkOrderData>({
     type: "신규",
-    writer: "박현우",
-    docNumber: "",
+    writer: initialIssuer ?? "",
+    docNumber: initialDocNumber ?? "",
     issueDate: initialIssueDate ?? "",
-    partnerApprovalDate: "",
     projectName: initialProjectName ?? "",
-    issuer: "",
+    issuer: initialIssuer ?? "",
     contractName: initialContractName ?? "",
-    receiver: "",
-    issuerSignature: "",
-    receiverSignature: "",
     title: initialTitle ?? "",
-    workContent: initialWorkContent ?? "",
+    workContent: "",
     representativeQty: initialRepresentativeQty ?? "",
     subcontractAmount: initialAmount != null ? String(Math.round(initialAmount)) : "",
     workStartDate: "",
@@ -117,13 +111,10 @@ export function WorkOrderForm({
               <Field label="발급일">
                 <input type="date" value={data.issueDate} onChange={set("issueDate")} className={inputCls} />
               </Field>
-              <Field label="협력사승인일">
-                <input type="date" value={data.partnerApprovalDate} onChange={set("partnerApprovalDate")} className={inputCls} />
-              </Field>
             </FieldRow>
           </FormGroup>
 
-          <FormGroup title="당사자 / 서명">
+          <FormGroup title="당사자">
             <FieldRow>
               <Field label="프로젝트">
                 <input value={data.projectName} onChange={set("projectName")} className={inputCls} />
@@ -132,22 +123,9 @@ export function WorkOrderForm({
                 <input value={data.issuer} onChange={set("issuer")} placeholder="발급 담당자명" className={inputCls} />
               </Field>
             </FieldRow>
-            <FieldRow>
-              <Field label="계약 (협력사명)">
-                <input value={data.contractName} onChange={set("contractName")} placeholder="협력사명" className={inputCls} />
-              </Field>
-              <Field label="접수자">
-                <input value={data.receiver} onChange={set("receiver")} placeholder="협력사 담당자명" className={inputCls} />
-              </Field>
-            </FieldRow>
-            <FieldRow>
-              <Field label="발급자 서명">
-                <input value={data.issuerSignature} onChange={set("issuerSignature")} className={inputCls} />
-              </Field>
-              <Field label="접수자 서명">
-                <input value={data.receiverSignature} onChange={set("receiverSignature")} className={inputCls} />
-              </Field>
-            </FieldRow>
+            <Field label="계약 (협력사명)">
+              <input value={data.contractName} onChange={set("contractName")} placeholder="협력사명" className={inputCls} />
+            </Field>
           </FormGroup>
 
           <FormGroup title="본문">
@@ -311,26 +289,14 @@ function WorkOrderPreview({ data }: { data: WorkOrderData }) {
             <VC>{data.issueDate}</VC>
           </PreviewRow>
           <PreviewRow>
-            <LC>협력사승인일</LC>
-            <VC colSpan={3}>{data.partnerApprovalDate}</VC>
-          </PreviewRow>
-          <PreviewRow>
             <LC>프로젝트</LC>
             <VC>{data.projectName}</VC>
             <LC>발 급 자</LC>
             <VC>{data.issuer}</VC>
           </PreviewRow>
           <PreviewRow>
-            <LC>계 약</LC>
-            <VC>{data.contractName}</VC>
-            <LC>접 수 자</LC>
-            <VC>{data.receiver}</VC>
-          </PreviewRow>
-          <PreviewRow>
-            <LC>발급자 서명</LC>
-            <VC>{data.issuerSignature}</VC>
-            <LC>접수자 서명</LC>
-            <VC>{data.receiverSignature}</VC>
+            <LC>계 약 (협력사명)</LC>
+            <VC colSpan={3}>{data.contractName}</VC>
           </PreviewRow>
           <PreviewRow>
             <LC>제 목</LC>

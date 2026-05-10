@@ -92,7 +92,12 @@ export interface SelectedSummary {
   method?: "embedding" | "deterministic";
 }
 
-export type AutoMatchStatus = "idle" | "loading" | "matched" | "empty" | "error";
+export type AutoMatchStatus =
+  | "idle"
+  | "loading"
+  | "matched"
+  | "empty"
+  | "error";
 export type DataTab = "db" | "actual" | "bid";
 export type AnalyzeTab = "summary" | "db" | "actual" | "bid" | "ai-matching";
 
@@ -146,6 +151,7 @@ const EMPTY_META: ParsedQuoteMeta = {
   requester: null,
   partnerName: null,
   workType: null,
+  spec: null,
   location: null,
 };
 
@@ -176,7 +182,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   submitError: null,
   selectedCompetitorBidIds: [],
   activeDataTab: "db",
-  activeAnalyzeTab: "summary",
+  activeAnalyzeTab: "db",
 
   setFile: (file) => {
     set({
@@ -251,6 +257,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
         ...currentForm,
         projectName: meta.projectName ?? currentForm.projectName,
         workType: meta.workType ?? currentForm.workType,
+        spec: meta.spec ?? currentForm.spec,
         items: formItems,
         partnerPrice:
           partnerTotal != null
@@ -388,7 +395,8 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   },
 
   submit: async () => {
-    const { form, extraction, selectedSummary, selectedCompetitorBidIds } = get();
+    const { form, extraction, selectedSummary, selectedCompetitorBidIds } =
+      get();
     const validItems = form.items.filter((it) => it.itemName.trim() !== "");
     if (validItems.length === 0) {
       set({ submitError: "최소 1개의 품목이 필요합니다." });

@@ -1,6 +1,14 @@
 "use client";
 
-import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -60,7 +68,12 @@ interface BidRequest {
     companyName: string | null;
     status: string;
     fileName: string;
-    items: { materialCost: number | null; laborCost: number | null; expenseCost: number | null; totalCost: number | null }[];
+    items: {
+      materialCost: number | null;
+      laborCost: number | null;
+      expenseCost: number | null;
+      totalCost: number | null;
+    }[];
   }[];
 }
 
@@ -79,7 +92,12 @@ function fmtDate(iso: string | null): string {
   if (isNaN(d.getTime())) return "-";
   // UTC+9 offset 적용으로 서버/클라이언트 모두 동일한 KST 결과 보장
   const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-  return `${kst.getUTCFullYear()}.${String(kst.getUTCMonth() + 1).padStart(2, "0")}.${String(kst.getUTCDate()).padStart(2, "0")} ${String(kst.getUTCHours()).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")}`;
+  return `${kst.getUTCFullYear()}.${String(kst.getUTCMonth() + 1).padStart(
+    2,
+    "0"
+  )}.${String(kst.getUTCDate()).padStart(2, "0")} ${String(
+    kst.getUTCHours()
+  ).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 // ── 협력사 추가 폼 ──────────────────────────────────────────
@@ -91,7 +109,12 @@ function AddContactForm({
   onAdded: (c: Contact) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ companyName: "", email: "", contactName: "", phone: "" });
+  const [form, setForm] = useState({
+    companyName: "",
+    email: "",
+    contactName: "",
+    phone: "",
+  });
   const [saving, setSaving] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -127,35 +150,75 @@ function AddContactForm({
   }
 
   return (
-    <form onSubmit={submit} className="bg-blue-50/60 border border-blue-200 rounded-lg p-4 space-y-3">
+    <form
+      onSubmit={submit}
+      className="bg-blue-50/60 border border-blue-200 rounded-lg p-4 space-y-3"
+    >
       <div className="text-xs font-semibold text-slate-700">협력사 추가</div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-slate-500 block mb-0.5">업체명 *</label>
-          <input value={form.companyName} onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
-            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" placeholder="(주)○○전기" required />
+          <label className="text-xs text-slate-500 block mb-0.5">
+            업체명 *
+          </label>
+          <input
+            value={form.companyName}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, companyName: e.target.value }))
+            }
+            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+            placeholder="(주)○○전기"
+            required
+          />
         </div>
         <div>
-          <label className="text-xs text-slate-500 block mb-0.5">이메일 *</label>
-          <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" placeholder="contact@company.com" required />
+          <label className="text-xs text-slate-500 block mb-0.5">
+            이메일 *
+          </label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+            placeholder="contact@company.com"
+            required
+          />
         </div>
         <div>
           <label className="text-xs text-slate-500 block mb-0.5">담당자</label>
-          <input value={form.contactName} onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))}
-            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" placeholder="홍길동" />
+          <input
+            value={form.contactName}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, contactName: e.target.value }))
+            }
+            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+            placeholder="홍길동"
+          />
         </div>
         <div>
-          <label className="text-xs text-slate-500 block mb-0.5">전화번호</label>
-          <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" placeholder="010-0000-0000" />
+          <label className="text-xs text-slate-500 block mb-0.5">
+            전화번호
+          </label>
+          <input
+            value={form.phone}
+            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+            placeholder="010-0000-0000"
+          />
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <button type="button" onClick={() => setOpen(false)}
-          className="text-xs text-slate-500 px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50">취소</button>
-        <button type="submit" disabled={saving}
-          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded disabled:opacity-50">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-xs text-slate-500 px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50"
+        >
+          취소
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded disabled:opacity-50"
+        >
           {saving ? "저장 중..." : "추가"}
         </button>
       </div>
@@ -190,11 +253,14 @@ function EditContactRow({
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/work-types/${subId}/contacts/${contact.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const res = await fetch(
+        `/api/work-types/${subId}/contacts/${contact.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       onSaved(data.contact);
@@ -213,7 +279,9 @@ function EditContactRow({
       <td className="p-2">
         <input
           value={form.companyName}
-          onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, companyName: e.target.value }))
+          }
           className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
           placeholder="업체명"
         />
@@ -230,7 +298,9 @@ function EditContactRow({
       <td className="p-2">
         <input
           value={form.contactName}
-          onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, contactName: e.target.value }))
+          }
           className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
           placeholder="담당자"
         />
@@ -281,7 +351,8 @@ function AttachmentZone({
     if (!incoming) return;
     const next = [...files];
     Array.from(incoming).forEach((f) => {
-      if (!next.some((e) => e.name === f.name && e.size === f.size)) next.push(f);
+      if (!next.some((e) => e.name === f.name && e.size === f.size))
+        next.push(f);
     });
     onChange(next);
   }
@@ -298,7 +369,10 @@ function AttachmentZone({
       </div>
       <div
         onClick={() => inputRef.current?.click()}
-        onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          addFiles(e.dataTransfer.files);
+        }}
         onDragOver={(e) => e.preventDefault()}
         className="border-2 border-dashed border-slate-300 rounded-lg px-4 py-3 text-center cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition"
       >
@@ -317,11 +391,21 @@ function AttachmentZone({
       {files.length > 0 && (
         <ul className="space-y-1">
           {files.map((f, i) => (
-            <li key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded px-3 py-1.5">
+            <li
+              key={i}
+              className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded px-3 py-1.5"
+            >
               <FileText size={13} className="text-blue-400 shrink-0" />
-              <span className="text-xs text-slate-700 flex-1 truncate">{f.name}</span>
-              <span className="text-xs text-slate-400">{(f.size / 1024).toFixed(0)} KB</span>
-              <button onClick={() => remove(i)} className="text-slate-300 hover:text-rose-500">
+              <span className="text-xs text-slate-700 flex-1 truncate">
+                {f.name}
+              </span>
+              <span className="text-xs text-slate-400">
+                {(f.size / 1024).toFixed(0)} KB
+              </span>
+              <button
+                onClick={() => remove(i)}
+                className="text-slate-300 hover:text-rose-500"
+              >
                 <X size={13} />
               </button>
             </li>
@@ -349,7 +433,9 @@ function ConfirmModal({
           <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center">
             <Mail size={28} className="text-blue-600" />
           </div>
-          <h3 className="text-lg font-bold text-slate-800">메일을 전송하시겠습니까?</h3>
+          <h3 className="text-lg font-bold text-slate-800">
+            메일을 전송하시겠습니까?
+          </h3>
         </div>
 
         <div className="flex gap-3">
@@ -393,7 +479,11 @@ function ResultModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-8 text-center space-y-6 animate-in fade-in zoom-in-95 duration-150">
         <div className="flex flex-col items-center gap-3">
-          <div className={`w-14 h-14 rounded-full flex items-center justify-center ${isSent ? "bg-emerald-100" : "bg-slate-100"}`}>
+          <div
+            className={`w-14 h-14 rounded-full flex items-center justify-center ${
+              isSent ? "bg-emerald-100" : "bg-slate-100"
+            }`}
+          >
             {isSent ? (
               <CheckCircle2 size={30} className="text-emerald-600" />
             ) : (
@@ -406,7 +496,11 @@ function ResultModal({
         </div>
         <button
           onClick={onClose}
-          className={`w-full py-3 rounded-xl text-white font-semibold text-sm active:scale-95 transition-all duration-100 ${isSent ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-600 hover:bg-slate-700"}`}
+          className={`w-full py-3 rounded-xl text-white font-semibold text-sm active:scale-95 transition-all duration-100 ${
+            isSent
+              ? "bg-emerald-600 hover:bg-emerald-700"
+              : "bg-slate-600 hover:bg-slate-700"
+          }`}
         >
           확인
         </button>
@@ -419,7 +513,12 @@ function ResultModal({
 type PreviewBid = {
   fileName: string;
   companyName: string | null;
-  items: { materialCost: number | null; laborCost: number | null; expenseCost: number | null; totalCost: number | null }[];
+  items: {
+    materialCost: number | null;
+    laborCost: number | null;
+    expenseCost: number | null;
+    totalCost: number | null;
+  }[];
 };
 
 function fmtMoney(n: number | null | undefined): string {
@@ -427,12 +526,18 @@ function fmtMoney(n: number | null | undefined): string {
   return n.toLocaleString("ko-KR") + "원";
 }
 
-function FilePreviewModal({ bid, onClose }: { bid: PreviewBid; onClose: () => void }) {
+function FilePreviewModal({
+  bid,
+  onClose,
+}: {
+  bid: PreviewBid;
+  onClose: () => void;
+}) {
   const cost = bid.items[0] ?? null;
   const rows = [
     { label: "재료비", value: cost?.materialCost },
     { label: "노무비", value: cost?.laborCost },
-    { label: "경비",   value: cost?.expenseCost },
+    { label: "경비", value: cost?.expenseCost },
   ].filter((r) => r.value != null);
 
   return (
@@ -448,9 +553,14 @@ function FilePreviewModal({ bid, onClose }: { bid: PreviewBid; onClose: () => vo
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <FileText size={15} className="text-blue-500 shrink-0" />
-            <span className="text-sm font-bold text-slate-800 truncate">{bid.fileName}</span>
+            <span className="text-sm font-bold text-slate-800 truncate">
+              {bid.fileName}
+            </span>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 shrink-0 transition">
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 shrink-0 transition"
+          >
             <X size={16} />
           </button>
         </div>
@@ -458,35 +568,50 @@ function FilePreviewModal({ bid, onClose }: { bid: PreviewBid; onClose: () => vo
         {/* 업체명 */}
         <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
           <p className="text-[11px] text-slate-500 mb-0.5">업체명</p>
-          <p className="text-sm font-semibold text-slate-800">{bid.companyName ?? "-"}</p>
+          <p className="text-sm font-semibold text-slate-800">
+            {bid.companyName ?? "-"}
+          </p>
         </div>
 
         {/* 비용 요약 */}
         <div className="px-5 py-4 space-y-1">
-          <p className="text-xs font-semibold text-slate-600 mb-3">견적 비용 요약</p>
+          <p className="text-xs font-semibold text-slate-600 mb-3">
+            견적 비용 요약
+          </p>
           {cost ? (
             <>
               {rows.map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+                <div
+                  key={label}
+                  className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0"
+                >
                   <span className="text-xs text-slate-500">{label}</span>
-                  <span className="text-sm font-mono text-slate-800">{fmtMoney(value)}</span>
+                  <span className="text-sm font-mono text-slate-800">
+                    {fmtMoney(value)}
+                  </span>
                 </div>
               ))}
               {cost.totalCost != null && (
                 <div className="flex items-center justify-between mt-3 px-3 py-2.5 bg-blue-50 rounded-lg border border-blue-100">
                   <span className="text-xs font-bold text-blue-700">합계</span>
-                  <span className="text-base font-mono font-bold text-blue-700">{fmtMoney(cost.totalCost)}</span>
+                  <span className="text-base font-mono font-bold text-blue-700">
+                    {fmtMoney(cost.totalCost)}
+                  </span>
                 </div>
               )}
             </>
           ) : (
-            <p className="text-xs text-slate-400 py-4 text-center">저장된 비용 데이터가 없습니다.</p>
+            <p className="text-xs text-slate-400 py-4 text-center">
+              저장된 비용 데이터가 없습니다.
+            </p>
           )}
         </div>
 
         {/* 하단 안내 */}
         <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-100">
-          <p className="text-[11px] text-slate-400">AI가 파싱한 비용 요약입니다. 원본 파일은 서버에 저장되지 않습니다.</p>
+          <p className="text-[11px] text-slate-400">
+            AI가 파싱한 비용 요약입니다. 원본 파일은 서버에 저장되지 않습니다.
+          </p>
         </div>
       </div>
     </div>
@@ -529,7 +654,13 @@ function SampleUploadCell({
 
   return (
     <span className="inline-flex items-center gap-2">
-      <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+        onChange={handleFile}
+      />
       <button
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
@@ -556,7 +687,9 @@ function BidRequestPageInner() {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [mailSubject, setMailSubject] = useState("");
   const [mailBody, setMailBody] = useState("");
-  const [modal, setModal] = useState<null | "confirm" | "sent" | "cancelled">(null);
+  const [modal, setModal] = useState<null | "confirm" | "sent" | "cancelled">(
+    null
+  );
   const [sending, setSending] = useState(false);
   const [bidRequests, setBidRequests] = useState<BidRequest[]>([]);
   const [newWorkTypeName, setNewWorkTypeName] = useState("");
@@ -570,7 +703,9 @@ function BidRequestPageInner() {
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [previewBid, setPreviewBid] = useState<PreviewBid | null>(null);
-  const [activeFilterCol, setActiveFilterCol] = useState<"company" | "workType" | "title" | "date" | "status" | null>(null);
+  const [activeFilterCol, setActiveFilterCol] = useState<
+    "company" | "workType" | "title" | "date" | "status" | null
+  >(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
 
   const loadAll = useCallback(async () => {
@@ -592,10 +727,12 @@ function BidRequestPageInner() {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   async function seed() {
     const res = await fetch("/api/work-types", {
@@ -621,7 +758,10 @@ function BidRequestPageInner() {
       body: JSON.stringify({ name: newWorkTypeName.trim() }),
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.error); return; }
+    if (!res.ok) {
+      alert(data.error);
+      return;
+    }
     setWorkTypes((prev) => [...prev, { ...data.workType, children: [] }]);
     setActiveParentId(data.workType.id);
     setActiveSubId(null);
@@ -634,14 +774,23 @@ function BidRequestPageInner() {
     const res = await fetch("/api/work-types", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newSubName.trim(), parentId: activeParentId }),
+      body: JSON.stringify({
+        name: newSubName.trim(),
+        parentId: activeParentId,
+      }),
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.error); return; }
+    if (!res.ok) {
+      alert(data.error);
+      return;
+    }
     setWorkTypes((prev) =>
       prev.map((w) =>
         w.id === activeParentId
-          ? { ...w, children: [...w.children, { ...data.workType, contacts: [] }] }
+          ? {
+              ...w,
+              children: [...w.children, { ...data.workType, contacts: [] }],
+            }
           : w
       )
     );
@@ -653,14 +802,21 @@ function BidRequestPageInner() {
     if (!confirm("이 대공종과 모든 세부공종·협력사를 삭제할까요?")) return;
     await fetch(`/api/work-types/${id}`, { method: "DELETE" });
     setWorkTypes((prev) => prev.filter((w) => w.id !== id));
-    if (activeParentId === id) { setActiveParentId(null); setActiveSubId(null); }
+    if (activeParentId === id) {
+      setActiveParentId(null);
+      setActiveSubId(null);
+    }
   }
 
   async function deleteSub(parentId: number, subId: number) {
     if (!confirm("이 세부공종과 협력사를 삭제할까요?")) return;
     await fetch(`/api/work-types/${subId}`, { method: "DELETE" });
     setWorkTypes((prev) =>
-      prev.map((w) => w.id === parentId ? { ...w, children: w.children.filter((c) => c.id !== subId) } : w)
+      prev.map((w) =>
+        w.id === parentId
+          ? { ...w, children: w.children.filter((c) => c.id !== subId) }
+          : w
+      )
     );
     if (activeSubId === subId) setActiveSubId(null);
   }
@@ -682,7 +838,12 @@ function BidRequestPageInner() {
         ...w,
         children: w.children.map((s) =>
           s.id === subId
-            ? { ...s, contacts: s.contacts.map((c) => c.id === updated.id ? updated : c) }
+            ? {
+                ...s,
+                contacts: s.contacts.map((c) =>
+                  c.id === updated.id ? updated : c
+                ),
+              }
             : s
         ),
       }))
@@ -691,16 +852,24 @@ function BidRequestPageInner() {
 
   async function deleteContact(subId: number, contactId: number) {
     if (!confirm("이 협력사를 삭제할까요?")) return;
-    await fetch(`/api/work-types/${subId}/contacts/${contactId}`, { method: "DELETE" });
+    await fetch(`/api/work-types/${subId}/contacts/${contactId}`, {
+      method: "DELETE",
+    });
     setWorkTypes((prev) =>
       prev.map((w) => ({
         ...w,
         children: w.children.map((s) =>
-          s.id === subId ? { ...s, contacts: s.contacts.filter((c) => c.id !== contactId) } : s
+          s.id === subId
+            ? { ...s, contacts: s.contacts.filter((c) => c.id !== contactId) }
+            : s
         ),
       }))
     );
-    setSelected((prev) => { const next = new Set(prev); next.delete(contactId); return next; });
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(contactId);
+      return next;
+    });
   }
 
   async function sendRequest() {
@@ -720,9 +889,11 @@ function BidRequestPageInner() {
               workTypeId: activeSubId,
               companyName: contact.companyName,
               title: mailSubject.trim() || autoTitle,
-              description: mailBody.trim() || (attachments.length > 0
-                ? `첨부: ${attachments.map((f) => f.name).join(", ")}`
-                : null),
+              description:
+                mailBody.trim() ||
+                (attachments.length > 0
+                  ? `첨부: ${attachments.map((f) => f.name).join(", ")}`
+                  : null),
             }),
           })
         )
@@ -731,7 +902,9 @@ function BidRequestPageInner() {
       const failed = results.filter((r) => !r.ok);
       if (failed.length > 0) {
         const errData = await failed[0].json().catch(() => ({}));
-        throw new Error(errData.error ?? `발송 오류 (HTTP ${failed[0].status})`);
+        throw new Error(
+          errData.error ?? `발송 오류 (HTTP ${failed[0].status})`
+        );
       }
 
       setModal("sent");
@@ -774,7 +947,9 @@ function BidRequestPageInner() {
         match.requests.push(req);
       } else {
         groups.push({
-          key: `${req.title ?? ""}_${req.workType?.id ?? 0}_${req.sentAt ?? req.id}`,
+          key: `${req.title ?? ""}_${req.workType?.id ?? 0}_${
+            req.sentAt ?? req.id
+          }`,
           title: req.title,
           sentAt: req.sentAt,
           workType: req.workType,
@@ -815,17 +990,35 @@ function BidRequestPageInner() {
         if (!sent || sent > to) return false;
       }
       if (filterStatus) {
-        const allReceived = group.requests.every((r) => r.status === "received");
+        const allReceived = group.requests.every(
+          (r) => r.status === "received"
+        );
         const anyReceived = group.requests.some((r) => r.status === "received");
         if (filterStatus === "received" && !allReceived) return false;
-        if (filterStatus === "partial" && !(anyReceived && !allReceived)) return false;
+        if (filterStatus === "partial" && !(anyReceived && !allReceived))
+          return false;
         if (filterStatus === "sent" && anyReceived) return false;
       }
       return true;
     });
-  }, [bidGroups, filterCompany, filterWorkType, filterTitle, filterDateFrom, filterDateTo, filterStatus]);
+  }, [
+    bidGroups,
+    filterCompany,
+    filterWorkType,
+    filterTitle,
+    filterDateFrom,
+    filterDateTo,
+    filterStatus,
+  ]);
 
-  const activeFilterCount = [filterCompany, filterWorkType, filterTitle, filterDateFrom, filterDateTo, filterStatus].filter(Boolean).length;
+  const activeFilterCount = [
+    filterCompany,
+    filterWorkType,
+    filterTitle,
+    filterDateFrom,
+    filterDateTo,
+    filterStatus,
+  ].filter(Boolean).length;
 
   function resetFilters() {
     setFilterCompany("");
@@ -841,7 +1034,10 @@ function BidRequestPageInner() {
     e: React.MouseEvent<HTMLButtonElement>
   ) {
     e.stopPropagation();
-    if (activeFilterCol === col) { setActiveFilterCol(null); return; }
+    if (activeFilterCol === col) {
+      setActiveFilterCol(null);
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     setDropdownPos({ top: rect.bottom + 4, left: rect.left });
     setActiveFilterCol(col);
@@ -849,16 +1045,28 @@ function BidRequestPageInner() {
 
   function clearCurrentColFilter() {
     switch (activeFilterCol) {
-      case "company":  setFilterCompany(""); break;
-      case "workType": setFilterWorkType(""); break;
-      case "title":    setFilterTitle(""); break;
-      case "date":     setFilterDateFrom(""); setFilterDateTo(""); break;
-      case "status":   setFilterStatus(""); break;
+      case "company":
+        setFilterCompany("");
+        break;
+      case "workType":
+        setFilterWorkType("");
+        break;
+      case "title":
+        setFilterTitle("");
+        break;
+      case "date":
+        setFilterDateFrom("");
+        setFilterDateTo("");
+        break;
+      case "status":
+        setFilterStatus("");
+        break;
     }
   }
 
   const activeParent = workTypes.find((w) => w.id === activeParentId) ?? null;
-  const activeSub = activeParent?.children.find((s) => s.id === activeSubId) ?? null;
+  const activeSub =
+    activeParent?.children.find((s) => s.id === activeSubId) ?? null;
   const allSelected =
     !!activeSub &&
     activeSub.contacts.length > 0 &&
@@ -874,14 +1082,17 @@ function BidRequestPageInner() {
     });
   }
 
-  if (loading) return <div className="p-8 text-slate-400 text-sm">불러오는 중...</div>;
+  if (loading)
+    return <div className="p-8 text-slate-400 text-sm">불러오는 중...</div>;
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <header className="space-y-2">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">3사 견적 요청</h1>
+            <h1 className="text-2xl font-bold text-slate-800">
+              비교 견적 요청
+            </h1>
             <p className="text-sm text-slate-500 mt-1">
               공종별 협력사에 동일 스펙 도면을 첨부한 견적 요청을 발송합니다.
             </p>
@@ -902,8 +1113,10 @@ function BidRequestPageInner() {
         <div className="bg-white rounded-xl border border-slate-200 p-10 text-center space-y-4">
           <Building2 size={40} className="text-slate-300 mx-auto" />
           <p className="text-slate-500 text-sm">등록된 공종이 없습니다.</p>
-          <button onClick={seed}
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm">
+          <button
+            onClick={seed}
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm"
+          >
             <Plus size={15} /> 기본 공종 추가 (건축·전기·설비·토목·소방·통신)
           </button>
         </div>
@@ -911,10 +1124,11 @@ function BidRequestPageInner() {
 
       {workTypes.length > 0 && (
         <div className="grid grid-cols-12 gap-4">
-
           {/* ── 대공종 목록 ── */}
           <div className="col-span-2 space-y-2">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1">대공종</div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1">
+              대공종
+            </div>
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               {workTypes.map((w) => (
                 <div key={w.id} className="group relative">
@@ -945,10 +1159,17 @@ function BidRequestPageInner() {
 
             {/* 대공종 추가 */}
             <form onSubmit={addParent} className="flex gap-1">
-              <input value={newWorkTypeName} onChange={(e) => setNewWorkTypeName(e.target.value)}
-                placeholder="대공종명 입력" className="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs" />
-              <button type="submit" disabled={!newWorkTypeName.trim()}
-                className="bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded text-xs disabled:opacity-40">
+              <input
+                value={newWorkTypeName}
+                onChange={(e) => setNewWorkTypeName(e.target.value)}
+                placeholder="대공종명 입력"
+                className="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs"
+              />
+              <button
+                type="submit"
+                disabled={!newWorkTypeName.trim()}
+                className="bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded text-xs disabled:opacity-40"
+              >
                 <Plus size={12} />
               </button>
             </form>
@@ -963,12 +1184,17 @@ function BidRequestPageInner() {
               <>
                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                   {activeParent.children.length === 0 ? (
-                    <div className="px-3 py-4 text-xs text-slate-400 text-center">세부공종 없음</div>
+                    <div className="px-3 py-4 text-xs text-slate-400 text-center">
+                      세부공종 없음
+                    </div>
                   ) : (
                     activeParent.children.map((s) => (
                       <div key={s.id} className="group relative">
                         <button
-                          onClick={() => { setActiveSubId(s.id); setSelected(new Set()); }}
+                          onClick={() => {
+                            setActiveSubId(s.id);
+                            setSelected(new Set());
+                          }}
                           className={`w-full text-left px-3 py-2.5 flex items-center justify-between text-xs transition border-b border-slate-100 last:border-0 ${
                             activeSubId === s.id
                               ? "bg-blue-50 text-blue-700 font-semibold"
@@ -976,7 +1202,9 @@ function BidRequestPageInner() {
                           }`}
                         >
                           <span>{s.name}</span>
-                          <span className="text-slate-400 font-normal">{s.contacts.length}개사</span>
+                          <span className="text-slate-400 font-normal">
+                            {s.contacts.length}개사
+                          </span>
                         </button>
                         <button
                           onClick={() => deleteSub(activeParent.id, s.id)}
@@ -991,16 +1219,25 @@ function BidRequestPageInner() {
 
                 {/* 세부공종 추가 */}
                 <form onSubmit={addSub} className="flex gap-1">
-                  <input value={newSubName} onChange={(e) => setNewSubName(e.target.value)}
-                    placeholder="세부공종명 입력" className="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs" />
-                  <button type="submit" disabled={!newSubName.trim()}
-                    className="bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded text-xs disabled:opacity-40">
+                  <input
+                    value={newSubName}
+                    onChange={(e) => setNewSubName(e.target.value)}
+                    placeholder="세부공종명 입력"
+                    className="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newSubName.trim()}
+                    className="bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded text-xs disabled:opacity-40"
+                  >
                     <Plus size={12} />
                   </button>
                 </form>
               </>
             ) : (
-              <div className="text-xs text-slate-400 px-1">대공종을 선택하세요</div>
+              <div className="text-xs text-slate-400 px-1">
+                대공종을 선택하세요
+              </div>
             )}
           </div>
 
@@ -1015,7 +1252,9 @@ function BidRequestPageInner() {
                     <span className="text-sm font-bold text-slate-800">
                       {activeParent?.name} &gt; {activeSub.name}
                     </span>
-                    <span className="text-xs text-slate-400 ml-1">협력사 목록</span>
+                    <span className="text-xs text-slate-400 ml-1">
+                      협력사 목록
+                    </span>
                   </div>
 
                   {activeSub.contacts.length === 0 ? (
@@ -1028,19 +1267,28 @@ function BidRequestPageInner() {
                         <thead className="bg-slate-50">
                           <tr>
                             <th className="p-3 w-8">
-                              <input type="checkbox" checked={allSelected} onChange={toggleAll} className="rounded" />
+                              <input
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={toggleAll}
+                                className="rounded"
+                              />
                             </th>
                             <th className="text-left p-3 font-medium text-slate-600 text-xs">
-                              <Building2 size={12} className="inline mr-1" />업체명
+                              <Building2 size={12} className="inline mr-1" />
+                              업체명
                             </th>
                             <th className="text-left p-3 font-medium text-slate-600 text-xs">
-                              <Mail size={12} className="inline mr-1" />이메일
+                              <Mail size={12} className="inline mr-1" />
+                              이메일
                             </th>
                             <th className="text-left p-3 font-medium text-slate-600 text-xs">
-                              <User size={12} className="inline mr-1" />담당자
+                              <User size={12} className="inline mr-1" />
+                              담당자
                             </th>
                             <th className="text-left p-3 font-medium text-slate-600 text-xs">
-                              <Phone size={12} className="inline mr-1" />연락처
+                              <Phone size={12} className="inline mr-1" />
+                              연락처
                             </th>
                             <th className="p-3 w-16"></th>
                           </tr>
@@ -1059,19 +1307,42 @@ function BidRequestPageInner() {
                                 onCancel={() => setEditingContactId(null)}
                               />
                             ) : (
-                              <tr key={c.id} className={`border-t border-slate-100 transition ${selected.has(c.id) ? "bg-blue-50/50" : "hover:bg-slate-50"}`}>
+                              <tr
+                                key={c.id}
+                                className={`border-t border-slate-100 transition ${
+                                  selected.has(c.id)
+                                    ? "bg-blue-50/50"
+                                    : "hover:bg-slate-50"
+                                }`}
+                              >
                                 <td className="p-3 text-center">
-                                  <input type="checkbox" checked={selected.has(c.id)}
-                                    onChange={(e) => setSelected((prev) => {
-                                      const next = new Set(prev);
-                                      e.target.checked ? next.add(c.id) : next.delete(c.id);
-                                      return next;
-                                    })} className="rounded" />
+                                  <input
+                                    type="checkbox"
+                                    checked={selected.has(c.id)}
+                                    onChange={(e) =>
+                                      setSelected((prev) => {
+                                        const next = new Set(prev);
+                                        e.target.checked
+                                          ? next.add(c.id)
+                                          : next.delete(c.id);
+                                        return next;
+                                      })
+                                    }
+                                    className="rounded"
+                                  />
                                 </td>
-                                <td className="p-3 font-medium text-slate-800">{c.companyName}</td>
-                                <td className="p-3 text-blue-600 font-mono text-xs">{c.email}</td>
-                                <td className="p-3 text-slate-600 text-xs">{c.contactName ?? "-"}</td>
-                                <td className="p-3 text-slate-600 text-xs">{c.phone ?? "-"}</td>
+                                <td className="p-3 font-medium text-slate-800">
+                                  {c.companyName}
+                                </td>
+                                <td className="p-3 text-blue-600 font-mono text-xs">
+                                  {c.email}
+                                </td>
+                                <td className="p-3 text-slate-600 text-xs">
+                                  {c.contactName ?? "-"}
+                                </td>
+                                <td className="p-3 text-slate-600 text-xs">
+                                  {c.phone ?? "-"}
+                                </td>
                                 <td className="p-3 text-right">
                                   <div className="flex items-center gap-1.5 justify-end">
                                     <button
@@ -1082,7 +1353,9 @@ function BidRequestPageInner() {
                                       <Pencil size={13} />
                                     </button>
                                     <button
-                                      onClick={() => deleteContact(activeSub.id, c.id)}
+                                      onClick={() =>
+                                        deleteContact(activeSub.id, c.id)
+                                      }
                                       className="text-slate-300 hover:text-rose-500 transition"
                                       title="삭제"
                                     >
@@ -1099,13 +1372,19 @@ function BidRequestPageInner() {
                   )}
 
                   <div className="px-5 py-4 border-t border-slate-100">
-                    <AddContactForm subWorkTypeId={activeSub.id} onAdded={(c) => addContact(activeSub.id, c)} />
+                    <AddContactForm
+                      subWorkTypeId={activeSub.id}
+                      onAdded={(c) => addContact(activeSub.id, c)}
+                    />
                   </div>
                 </div>
 
                 {/* 파일 첨부 + 발송 */}
                 <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-                  <AttachmentZone files={attachments} onChange={setAttachments} />
+                  <AttachmentZone
+                    files={attachments}
+                    onChange={setAttachments}
+                  />
 
                   {/* 메일 제목 / 내용 */}
                   <div className="space-y-3">
@@ -1118,7 +1397,9 @@ function BidRequestPageInner() {
                         type="text"
                         value={mailSubject}
                         onChange={(e) => setMailSubject(e.target.value)}
-                        placeholder={`메일 제목 (기본: ${activeParent?.name ?? ""} > ${activeSub?.name ?? ""} 견적 요청)`}
+                        placeholder={`메일 제목 (기본: ${
+                          activeParent?.name ?? ""
+                        } > ${activeSub?.name ?? ""} 견적 요청)`}
                         className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                       <textarea
@@ -1134,12 +1415,21 @@ function BidRequestPageInner() {
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                     <div className="text-sm text-slate-600">
                       {selected.size > 0 ? (
-                        <span><span className="font-semibold text-blue-700">{selected.size}개 업체</span> 선택됨</span>
+                        <span>
+                          <span className="font-semibold text-blue-700">
+                            {selected.size}개 업체
+                          </span>{" "}
+                          선택됨
+                        </span>
                       ) : (
-                        <span className="text-slate-400">업체를 선택하세요</span>
+                        <span className="text-slate-400">
+                          업체를 선택하세요
+                        </span>
                       )}
                       {attachments.length > 0 && (
-                        <span className="ml-3 text-slate-400 text-xs">· 첨부 {attachments.length}개</span>
+                        <span className="ml-3 text-slate-400 text-xs">
+                          · 첨부 {attachments.length}개
+                        </span>
                       )}
                     </div>
                     <button
@@ -1198,65 +1488,135 @@ function BidRequestPageInner() {
                   <th className="px-3 py-3 text-left">
                     <button
                       onClick={(e) => handleFilterClick("company", e)}
-                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${filterCompany ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${
+                        filterCompany
+                          ? "text-blue-600"
+                          : "text-slate-600 hover:text-slate-800"
+                      }`}
                     >
                       수신처
-                      <ChevronDown size={11} className={`transition-transform ${filterCompany ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
-                      {filterCompany && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                      <ChevronDown
+                        size={11}
+                        className={`transition-transform ${
+                          filterCompany
+                            ? "text-blue-500 rotate-180"
+                            : "text-slate-400"
+                        }`}
+                      />
+                      {filterCompany && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      )}
                     </button>
                   </th>
                   {/* 공종 */}
                   <th className="px-3 py-3 text-left w-28">
                     <button
                       onClick={(e) => handleFilterClick("workType", e)}
-                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${filterWorkType ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${
+                        filterWorkType
+                          ? "text-blue-600"
+                          : "text-slate-600 hover:text-slate-800"
+                      }`}
                     >
                       공종
-                      <ChevronDown size={11} className={`transition-transform ${filterWorkType ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
-                      {filterWorkType && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                      <ChevronDown
+                        size={11}
+                        className={`transition-transform ${
+                          filterWorkType
+                            ? "text-blue-500 rotate-180"
+                            : "text-slate-400"
+                        }`}
+                      />
+                      {filterWorkType && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      )}
                     </button>
                   </th>
                   {/* 제목 */}
                   <th className="px-3 py-3 text-left">
                     <button
                       onClick={(e) => handleFilterClick("title", e)}
-                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${filterTitle ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${
+                        filterTitle
+                          ? "text-blue-600"
+                          : "text-slate-600 hover:text-slate-800"
+                      }`}
                     >
                       제목
-                      <ChevronDown size={11} className={`transition-transform ${filterTitle ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
-                      {filterTitle && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                      <ChevronDown
+                        size={11}
+                        className={`transition-transform ${
+                          filterTitle
+                            ? "text-blue-500 rotate-180"
+                            : "text-slate-400"
+                        }`}
+                      />
+                      {filterTitle && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      )}
                     </button>
                   </th>
                   {/* 발송일시 */}
                   <th className="px-3 py-3 text-center w-36">
                     <button
                       onClick={(e) => handleFilterClick("date", e)}
-                      className={`inline-flex items-center gap-1 text-xs font-medium transition mx-auto ${(filterDateFrom || filterDateTo) ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition mx-auto ${
+                        filterDateFrom || filterDateTo
+                          ? "text-blue-600"
+                          : "text-slate-600 hover:text-slate-800"
+                      }`}
                     >
                       발송일시
-                      <ChevronDown size={11} className={`transition-transform ${(filterDateFrom || filterDateTo) ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
-                      {(filterDateFrom || filterDateTo) && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                      <ChevronDown
+                        size={11}
+                        className={`transition-transform ${
+                          filterDateFrom || filterDateTo
+                            ? "text-blue-500 rotate-180"
+                            : "text-slate-400"
+                        }`}
+                      />
+                      {(filterDateFrom || filterDateTo) && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      )}
                     </button>
                   </th>
                   {/* 상태 */}
                   <th className="px-3 py-3 text-center w-32">
                     <button
                       onClick={(e) => handleFilterClick("status", e)}
-                      className={`inline-flex items-center gap-1 text-xs font-medium transition mx-auto ${filterStatus ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition mx-auto ${
+                        filterStatus
+                          ? "text-blue-600"
+                          : "text-slate-600 hover:text-slate-800"
+                      }`}
                     >
                       상태
-                      <ChevronDown size={11} className={`transition-transform ${filterStatus ? "text-blue-500 rotate-180" : "text-slate-400"}`} />
-                      {filterStatus && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                      <ChevronDown
+                        size={11}
+                        className={`transition-transform ${
+                          filterStatus
+                            ? "text-blue-500 rotate-180"
+                            : "text-slate-400"
+                        }`}
+                      />
+                      {filterStatus && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      )}
                     </button>
                   </th>
                   {/* 첨부파일 */}
-                  <th className="px-3 py-3 text-center w-44 text-xs font-medium text-slate-600">첨부파일</th>
+                  <th className="px-3 py-3 text-center w-44 text-xs font-medium text-slate-600">
+                    첨부파일
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredGroups.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400 text-xs">
+                    <td
+                      colSpan={7}
+                      className="p-8 text-center text-slate-400 text-xs"
+                    >
                       조건에 맞는 이력이 없습니다.
                     </td>
                   </tr>
@@ -1265,9 +1625,16 @@ function BidRequestPageInner() {
                   const isMulti = group.requests.length > 1;
                   const isExpanded = expandedGroups.has(group.key);
                   const first = group.requests[0];
-                  const totalReceived = group.requests.reduce((a, r) => a + r.receivedBids.length, 0);
-                  const allReceived = group.requests.every((r) => r.status === "received");
-                  const someReceived = group.requests.some((r) => r.status === "received");
+                  const totalReceived = group.requests.reduce(
+                    (a, r) => a + r.receivedBids.length,
+                    0
+                  );
+                  const allReceived = group.requests.every(
+                    (r) => r.status === "received"
+                  );
+                  const someReceived = group.requests.some(
+                    (r) => r.status === "received"
+                  );
                   // 그룹 전체 수령 견적 목록
                   const allBids = group.requests.flatMap((r) => r.receivedBids);
 
@@ -1275,14 +1642,20 @@ function BidRequestPageInner() {
                     <Fragment key={group.key}>
                       {/* 그룹 헤더 행 */}
                       <tr
-                        className={`border-t border-slate-100 ${isMulti ? "cursor-pointer select-none" : ""} hover:bg-slate-50 transition`}
-                        onClick={isMulti ? () => toggleGroup(group.key) : undefined}
+                        className={`border-t border-slate-100 ${
+                          isMulti ? "cursor-pointer select-none" : ""
+                        } hover:bg-slate-50 transition`}
+                        onClick={
+                          isMulti ? () => toggleGroup(group.key) : undefined
+                        }
                       >
                         <td className="px-3 py-3 text-center align-middle">
                           {isMulti && (
                             <ChevronDown
                               size={14}
-                              className={`text-slate-400 transition-transform duration-150 mx-auto ${isExpanded ? "rotate-180" : ""}`}
+                              className={`text-slate-400 transition-transform duration-150 mx-auto ${
+                                isExpanded ? "rotate-180" : ""
+                              }`}
                             />
                           )}
                         </td>
@@ -1298,23 +1671,37 @@ function BidRequestPageInner() {
                             first.companyName ?? "-"
                           )}
                         </td>
-                        <td className="px-3 py-3 align-middle text-slate-600 text-xs">{group.workType?.name ?? "-"}</td>
-                        <td className="px-3 py-3 align-middle text-slate-600 text-xs">{group.title ?? "-"}</td>
-                        <td className="px-3 py-3 align-middle text-center text-xs font-mono text-slate-500">{fmtDate(group.sentAt)}</td>
+                        <td className="px-3 py-3 align-middle text-slate-600 text-xs">
+                          {group.workType?.name ?? "-"}
+                        </td>
+                        <td className="px-3 py-3 align-middle text-slate-600 text-xs">
+                          {group.title ?? "-"}
+                        </td>
+                        <td className="px-3 py-3 align-middle text-center text-xs font-mono text-slate-500">
+                          {fmtDate(group.sentAt)}
+                        </td>
                         <td className="px-3 py-3 align-middle text-center">
                           <div className="inline-flex flex-col items-center gap-1">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              allReceived
-                                ? "bg-emerald-100 text-emerald-700"
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                allReceived
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : someReceived
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-blue-100 text-blue-700"
+                              }`}
+                            >
+                              {allReceived
+                                ? "수령완료"
                                 : someReceived
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-blue-100 text-blue-700"
-                            }`}>
-                              {allReceived ? "수령완료" : someReceived ? "일부수령" : "발송완료"}
+                                ? "일부수령"
+                                : "발송완료"}
                             </span>
                             <div className="text-[11px]">
                               {totalReceived > 0 ? (
-                                <span className="text-emerald-600 font-medium">{totalReceived}건 수령</span>
+                                <span className="text-emerald-600 font-medium">
+                                  {totalReceived}건 수령
+                                </span>
                               ) : (
                                 <span className="text-slate-400">대기 중</span>
                               )}
@@ -1328,15 +1715,27 @@ function BidRequestPageInner() {
                                 key={bid.id}
                                 className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded max-w-[160px] truncate cursor-pointer hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition group"
                                 title={`${bid.fileName} — 더블클릭으로 미리보기`}
-                                onDoubleClick={(e) => { e.stopPropagation(); setPreviewBid(bid); }}
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewBid(bid);
+                                }}
                               >
-                                <FileText size={10} className="text-blue-400 shrink-0 group-hover:text-blue-500" />
+                                <FileText
+                                  size={10}
+                                  className="text-blue-400 shrink-0 group-hover:text-blue-500"
+                                />
                                 {bid.fileName}
-                                <Eye size={9} className="text-slate-300 shrink-0 group-hover:text-blue-400 ml-0.5" />
+                                <Eye
+                                  size={9}
+                                  className="text-slate-300 shrink-0 group-hover:text-blue-400 ml-0.5"
+                                />
                               </span>
                             ))}
                             {!isMulti && allBids.length === 0 && (
-                              <SampleUploadCell bidRequestId={first.id} onUploaded={loadAll} />
+                              <SampleUploadCell
+                                bidRequestId={first.id}
+                                onUploaded={loadAll}
+                              />
                             )}
                             {isMulti && allBids.length === 0 && (
                               <span className="text-slate-300 text-xs">-</span>
@@ -1345,59 +1744,90 @@ function BidRequestPageInner() {
                         </td>
                       </tr>
 
-                      {isMulti && isExpanded && group.requests.map((r) => {
-                        return (
-                          <tr key={`sub-${r.id}`} className="border-t border-slate-50 bg-slate-50/70">
-                            <td className="px-3 py-2.5 align-middle" />
-                            <td className="px-3 py-2.5 align-middle pl-8">
-                              <span className="flex items-center gap-1.5 text-xs text-slate-700">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
-                                {r.companyName ?? "-"}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5 align-middle text-xs text-slate-400">{r.workType?.name ?? "-"}</td>
-                            <td className="px-3 py-2.5 align-middle text-xs text-slate-400">{r.title ?? "-"}</td>
-                            <td className="px-3 py-2.5 align-middle text-center text-xs font-mono text-slate-400">{fmtDate(r.sentAt)}</td>
-                            <td className="px-3 py-2.5 align-middle text-center">
-                              <div className="inline-flex flex-col items-center gap-1">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  r.status === "received"
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-blue-100 text-blue-700"
-                                }`}>
-                                  {r.status === "received" ? "수령완료" : "발송완료"}
+                      {isMulti &&
+                        isExpanded &&
+                        group.requests.map((r) => {
+                          return (
+                            <tr
+                              key={`sub-${r.id}`}
+                              className="border-t border-slate-50 bg-slate-50/70"
+                            >
+                              <td className="px-3 py-2.5 align-middle" />
+                              <td className="px-3 py-2.5 align-middle pl-8">
+                                <span className="flex items-center gap-1.5 text-xs text-slate-700">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+                                  {r.companyName ?? "-"}
                                 </span>
-                                <div className="text-[11px]">
-                                  {r.receivedBids.length > 0 ? (
-                                    <span className="text-emerald-600 font-medium">{r.receivedBids.length}건 수령</span>
-                                  ) : (
-                                    <span className="text-slate-400">대기 중</span>
+                              </td>
+                              <td className="px-3 py-2.5 align-middle text-xs text-slate-400">
+                                {r.workType?.name ?? "-"}
+                              </td>
+                              <td className="px-3 py-2.5 align-middle text-xs text-slate-400">
+                                {r.title ?? "-"}
+                              </td>
+                              <td className="px-3 py-2.5 align-middle text-center text-xs font-mono text-slate-400">
+                                {fmtDate(r.sentAt)}
+                              </td>
+                              <td className="px-3 py-2.5 align-middle text-center">
+                                <div className="inline-flex flex-col items-center gap-1">
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      r.status === "received"
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : "bg-blue-100 text-blue-700"
+                                    }`}
+                                  >
+                                    {r.status === "received"
+                                      ? "수령완료"
+                                      : "발송완료"}
+                                  </span>
+                                  <div className="text-[11px]">
+                                    {r.receivedBids.length > 0 ? (
+                                      <span className="text-emerald-600 font-medium">
+                                        {r.receivedBids.length}건 수령
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">
+                                        대기 중
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2.5 align-middle text-center">
+                                <div className="inline-flex flex-col items-center gap-1.5">
+                                  {r.receivedBids.map((bid) => (
+                                    <span
+                                      key={bid.id}
+                                      className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded max-w-[160px] truncate cursor-pointer hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition group"
+                                      title={`${bid.fileName} — 더블클릭으로 미리보기`}
+                                      onDoubleClick={(e) => {
+                                        e.stopPropagation();
+                                        setPreviewBid(bid);
+                                      }}
+                                    >
+                                      <FileText
+                                        size={10}
+                                        className="text-blue-400 shrink-0 group-hover:text-blue-500"
+                                      />
+                                      {bid.fileName}
+                                      <Eye
+                                        size={9}
+                                        className="text-slate-300 shrink-0 group-hover:text-blue-400 ml-0.5"
+                                      />
+                                    </span>
+                                  ))}
+                                  {r.receivedBids.length === 0 && (
+                                    <SampleUploadCell
+                                      bidRequestId={r.id}
+                                      onUploaded={loadAll}
+                                    />
                                   )}
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2.5 align-middle text-center">
-                              <div className="inline-flex flex-col items-center gap-1.5">
-                                {r.receivedBids.map((bid) => (
-                                  <span
-                                    key={bid.id}
-                                    className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded max-w-[160px] truncate cursor-pointer hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition group"
-                                    title={`${bid.fileName} — 더블클릭으로 미리보기`}
-                                    onDoubleClick={(e) => { e.stopPropagation(); setPreviewBid(bid); }}
-                                  >
-                                    <FileText size={10} className="text-blue-400 shrink-0 group-hover:text-blue-500" />
-                                    {bid.fileName}
-                                    <Eye size={9} className="text-slate-300 shrink-0 group-hover:text-blue-400 ml-0.5" />
-                                  </span>
-                                ))}
-                                {r.receivedBids.length === 0 && (
-                                  <SampleUploadCell bidRequestId={r.id} onUploaded={loadAll} />
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </Fragment>
                   );
                 })}
@@ -1411,40 +1841,75 @@ function BidRequestPageInner() {
       {activeFilterCol && (
         <>
           {/* 배경 오버레이 - 외부 클릭 시 닫기 */}
-          <div className="fixed inset-0 z-[99]" onClick={() => setActiveFilterCol(null)} />
+          <div
+            className="fixed inset-0 z-[99]"
+            onClick={() => setActiveFilterCol(null)}
+          />
 
           {/* 드롭다운 패널 */}
           <div
             className="fixed z-[100] bg-white rounded-lg border border-slate-200 shadow-2xl overflow-hidden"
-            style={{ top: dropdownPos.top, left: dropdownPos.left, minWidth: 220 }}
+            style={{
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              minWidth: 220,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 패널 헤더 */}
             <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5">
               <SlidersHorizontal size={11} className="text-slate-500" />
               <span className="text-xs font-semibold text-slate-600">
-                {{ company: "수신처", workType: "공종", title: "제목", date: "발송일시", status: "상태" }[activeFilterCol]}
-                {" "}필터
+                {
+                  {
+                    company: "수신처",
+                    workType: "공종",
+                    title: "제목",
+                    date: "발송일시",
+                    status: "상태",
+                  }[activeFilterCol]
+                }{" "}
+                필터
               </span>
             </div>
 
             {/* 텍스트 검색 (수신처 / 공종 / 제목) */}
-            {(activeFilterCol === "company" || activeFilterCol === "workType" || activeFilterCol === "title") && (
+            {(activeFilterCol === "company" ||
+              activeFilterCol === "workType" ||
+              activeFilterCol === "title") && (
               <div className="p-3">
                 <input
                   autoFocus
                   type="text"
-                  value={activeFilterCol === "company" ? filterCompany : activeFilterCol === "workType" ? filterWorkType : filterTitle}
+                  value={
+                    activeFilterCol === "company"
+                      ? filterCompany
+                      : activeFilterCol === "workType"
+                      ? filterWorkType
+                      : filterTitle
+                  }
                   onChange={(e) => {
-                    if (activeFilterCol === "company") setFilterCompany(e.target.value);
-                    else if (activeFilterCol === "workType") setFilterWorkType(e.target.value);
+                    if (activeFilterCol === "company")
+                      setFilterCompany(e.target.value);
+                    else if (activeFilterCol === "workType")
+                      setFilterWorkType(e.target.value);
                     else setFilterTitle(e.target.value);
                   }}
-                  placeholder={activeFilterCol === "company" ? "업체명 검색..." : activeFilterCol === "workType" ? "공종명 검색..." : "제목 검색..."}
+                  placeholder={
+                    activeFilterCol === "company"
+                      ? "업체명 검색..."
+                      : activeFilterCol === "workType"
+                      ? "공종명 검색..."
+                      : "제목 검색..."
+                  }
                   className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                  onKeyDown={(e) => { if (e.key === "Enter") setActiveFilterCol(null); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setActiveFilterCol(null);
+                  }}
                 />
-                <p className="text-[11px] text-slate-400 mt-1.5">Enter 또는 확인 버튼으로 적용</p>
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Enter 또는 확인 버튼으로 적용
+                </p>
               </div>
             )}
 
@@ -1452,7 +1917,9 @@ function BidRequestPageInner() {
             {activeFilterCol === "date" && (
               <div className="p-3 space-y-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500 block mb-1">시작일</label>
+                  <label className="text-[11px] font-semibold text-slate-500 block mb-1">
+                    시작일
+                  </label>
                   <input
                     type="date"
                     value={filterDateFrom}
@@ -1461,7 +1928,9 @@ function BidRequestPageInner() {
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500 block mb-1">종료일</label>
+                  <label className="text-[11px] font-semibold text-slate-500 block mb-1">
+                    종료일
+                  </label>
                   <input
                     type="date"
                     value={filterDateTo}
@@ -1477,13 +1946,29 @@ function BidRequestPageInner() {
               <div className="py-1.5">
                 {[
                   { value: "", label: "전체", icon: null },
-                  { value: "sent", label: "발송완료", color: "bg-blue-100 text-blue-700" },
-                  { value: "partial", label: "일부수령", color: "bg-amber-100 text-amber-700" },
-                  { value: "received", label: "수령완료", color: "bg-emerald-100 text-emerald-700" },
+                  {
+                    value: "sent",
+                    label: "발송완료",
+                    color: "bg-blue-100 text-blue-700",
+                  },
+                  {
+                    value: "partial",
+                    label: "일부수령",
+                    color: "bg-amber-100 text-amber-700",
+                  },
+                  {
+                    value: "received",
+                    label: "수령완료",
+                    color: "bg-emerald-100 text-emerald-700",
+                  },
                 ].map(({ value, label, color }) => (
                   <label
                     key={value}
-                    className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition ${filterStatus === value ? "bg-blue-50" : "hover:bg-slate-50"}`}
+                    className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition ${
+                      filterStatus === value
+                        ? "bg-blue-50"
+                        : "hover:bg-slate-50"
+                    }`}
                   >
                     <input
                       type="radio"
@@ -1493,7 +1978,11 @@ function BidRequestPageInner() {
                       className="text-blue-600 cursor-pointer"
                     />
                     {color ? (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>{label}</span>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}
+                      >
+                        {label}
+                      </span>
                     ) : (
                       <span className="text-xs text-slate-600">{label}</span>
                     )}
@@ -1532,7 +2021,10 @@ function BidRequestPageInner() {
         <ResultModal type={modal} onClose={() => setModal(null)} />
       )}
       {previewBid && (
-        <FilePreviewModal bid={previewBid} onClose={() => setPreviewBid(null)} />
+        <FilePreviewModal
+          bid={previewBid}
+          onClose={() => setPreviewBid(null)}
+        />
       )}
     </div>
   );
@@ -1540,7 +2032,11 @@ function BidRequestPageInner() {
 
 export default function BidRequestPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-slate-400 text-sm">불러오는 중...</div>}>
+    <Suspense
+      fallback={
+        <div className="p-8 text-slate-400 text-sm">불러오는 중...</div>
+      }
+    >
       <BidRequestPageInner />
     </Suspense>
   );

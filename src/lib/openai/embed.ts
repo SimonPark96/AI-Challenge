@@ -37,7 +37,7 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
 }
 
 /**
- * 매칭용 임베딩 텍스트.
+ * 외부 스크래핑(PriceHistory/WageHistory) 용 임베딩 텍스트.
  *
  * 의도적으로 itemName 만 사용. spec 까지 합치면 사이트마다 표기가 달라 cosine 이
  * 크게 흔들렸기 때문 (예: 견적서 spec="커넥팅 프로파일" vs DB spec="T1.0"). spec 은
@@ -51,6 +51,22 @@ export function buildEmbeddingText(
   _spec?: string | null
 ): string {
   return itemName.trim();
+}
+
+/**
+ * 사내 정형 데이터(PriceSummary/ConfidentialPrice) 용 임베딩 텍스트.
+ *
+ * 외부 스크래핑과 달리 사내 데이터는 spec 표기가 일관되어 있어 임베딩에 포함하면
+ * 변별력이 올라간다. 단 query 와 index 양쪽이 반드시 동일한 형식을 써야 cosine 이
+ * 대칭적으로 작동하므로, 사내 데이터 매칭 흐름은 모두 이 헬퍼만 사용할 것.
+ */
+export function buildEmbeddingTextWithSpec(
+  name: string,
+  spec: string | null | undefined
+): string {
+  const n = name.trim();
+  const s = spec?.trim() ?? "";
+  return s ? `${n} ${s}` : n;
 }
 
 /**

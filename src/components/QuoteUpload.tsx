@@ -38,7 +38,7 @@ export function QuoteUpload() {
       onDrop={onDrop}
       onDragOver={(e) => e.preventDefault()}
       onClick={() => inputRef.current?.click()}
-      className={`relative rounded-lg border-2 border-dashed transition cursor-pointer min-h-[84px] flex flex-col items-center justify-center text-center px-4 py-3 ${
+      className={`relative rounded-lg border-2 border-dashed transition cursor-pointer min-h-[64px] flex flex-col items-center justify-center text-center px-3 py-2 ${
         isParsing
           ? "border-blue-300 bg-blue-50"
           : file
