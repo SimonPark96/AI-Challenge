@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { matchQuoteToConfidential } from "@/lib/quote/confidential-match";
 import { StepIndicator } from "@/components/StepIndicator";
 import { AnalyzePageClient } from "@/components/AnalyzePageClient";
 import { AiChatBot } from "@/components/chat/AiChatBot";
@@ -66,11 +67,20 @@ export default async function AnalyzeByIdPage({
     expenseCost: num(meta?.expenseCost),
   };
 
-  const confMatched = quotation.items.filter((it) => it.confUnitPrice != null);
-  const confTotal =
-    confMatched.length > 0
-      ? confMatched.reduce((a, it) => a + (it.confUnitPrice ?? 0) * (it.quantity ?? 1), 0)
+  const quotationName =
+    typeof meta?.projectName === "string" ? meta.projectName : null;
+  const quotationSpec =
+    typeof meta?.spec === "string" ? meta.spec : null;
+
+  // 사내 DB 단가: 공종명(또는 프로젝트명)으로 DB에서 유사 조(組)를 1건 매칭하여 합계 단가 비교
+  const workType =
+    typeof meta?.workType === "string" && meta.workType.trim()
+      ? meta.workType.trim()
       : null;
+  const matchName = workType ?? quotationName;
+  const confSummary = matchName
+    ? await matchQuoteToConfidential(matchName, quotationSpec).catch(() => null)
+    : null;
 
   interface CompetitorBidCol {
     id: number;
@@ -123,11 +133,6 @@ export default async function AnalyzeByIdPage({
     expenseCost: null as number | null,
   };
 
-  const quotationName =
-    typeof meta?.projectName === "string" ? meta.projectName : null;
-  const quotationSpec =
-    typeof meta?.spec === "string" ? meta.spec : null;
-
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-4">
       <header>
@@ -169,20 +174,7 @@ export default async function AnalyzeByIdPage({
               }
             : null
         }
-        confItems={quotation.items.map((it) => ({
-          id: it.id,
-          rowIndex: it.rowIndex,
-          itemName: it.itemName,
-          spec: it.spec,
-          unit: it.unit,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          confUnitPrice: it.confUnitPrice,
-          matchedConfidence: it.matchedConfidence,
-          deviationPct: it.deviationPct,
-        }))}
-        confTotal={confTotal}
-        confMatchedCount={confMatched.length}
+        confSummary={confSummary}
         competitorBids={competitorBids}
         itemMarketTotal={itemMarketTotal}
         itemMarketBreakdown={itemMarketBreakdown}

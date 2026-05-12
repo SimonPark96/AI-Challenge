@@ -11,6 +11,80 @@ const DETERMINISTIC_WEIGHT = 0.6;
 const ACRONYM_TOKEN_BONUS = 0.1;
 const ACRONYM_BONUS_CAP = 0.2;
 
+export interface ConfidentialQuoteMatchResult {
+  confId: number;
+  confName: string;
+  confSpec: string | null;
+  confUnit: string | null;
+  confTotalCost: number | null;
+  confMaterialCost: number | null;
+  confLaborCost: number | null;
+  confExpenseCost: number | null;
+  confidence: number;
+}
+
+/** 견적 전체(공종명/프로젝트명)를 사내 DB 단가와 1:1 매칭하여 합계 단가 비교용 조(組)를 반환 */
+export async function matchQuoteToConfidential(
+  name: string,
+  spec?: string | null
+): Promise<ConfidentialQuoteMatchResult | null> {
+  const cleanName = name.trim();
+  if (!cleanName) return null;
+
+  const pool = await prisma.confidentialPrice.findMany({
+    select: {
+      id: true,
+      name: true,
+      spec: true,
+      unit: true,
+      totalCost: true,
+      materialCost: true,
+      laborCost: true,
+      expenseCost: true,
+      embedding: true,
+    },
+    orderBy: { fetchedAt: "desc" },
+    take: MAX_CANDIDATES,
+  });
+
+  if (pool.length === 0) return null;
+
+  const queryText = buildEmbeddingTextWithSpec(cleanName, spec);
+  let queryVec: number[] | null = null;
+  try {
+    const vecs = await embedTexts([queryText]);
+    queryVec = vecs[0];
+  } catch {
+    // deterministic fallback
+  }
+
+  const scored = pool.map((row) => {
+    const det = deterministicScore(cleanName, spec ?? null, row.name, row.spec);
+    const acro = acronymBonus(cleanName, row.name);
+    const combined =
+      queryVec && Array.isArray(row.embedding)
+        ? cosineSimilarity(queryVec, row.embedding as number[]) + DETERMINISTIC_WEIGHT * det + acro
+        : det + acro;
+    return { row, combined };
+  });
+
+  scored.sort((a, b) => b.combined - a.combined);
+  const best = scored[0];
+  if (!best) return null;
+
+  return {
+    confId: best.row.id,
+    confName: best.row.name,
+    confSpec: best.row.spec,
+    confUnit: best.row.unit,
+    confTotalCost: best.row.totalCost,
+    confMaterialCost: best.row.materialCost,
+    confLaborCost: best.row.laborCost,
+    confExpenseCost: best.row.expenseCost,
+    confidence: Math.max(0, Math.min(1, best.combined)),
+  };
+}
+
 export interface ConfidentialMatchResult {
   rowIndex: number;
   itemName: string;

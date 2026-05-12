@@ -35,7 +35,7 @@ export function ConfirmAndOrderSection({ quotationId, status }: Props) {
         </h2>
         <p className="text-xs text-slate-500 mt-1 leading-relaxed">
           검토 결과 확정에 체크하면 작업지시서 생성으로 진행할 수 있습니다.
-          실제 확정(검토 요청 목록 &ldquo;완료&rdquo; 탭 이동) 은 작업지시서 페이지의{" "}
+          실제 확정(단가 검토 히스토리 &ldquo;완료&rdquo; 탭 이동) 은 작업지시서 페이지의{" "}
           <span className="font-medium">[결재요청]</span> 버튼에서 이루어집니다.
         </p>
       </div>

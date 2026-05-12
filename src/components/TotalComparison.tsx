@@ -29,12 +29,21 @@ interface CompetitorBidCol {
   expenseCost: number | null;
 }
 
+interface ConfSummaryRef {
+  confName: string;
+  confSpec: string | null;
+  confTotalCost: number | null;
+  confMaterialCost: number | null;
+  confLaborCost: number | null;
+  confExpenseCost: number | null;
+  confidence: number;
+}
+
 interface Props {
   partnerTotal: number | null;
   partnerCostBreakdown: CostBreakdown;
   summary: SummaryRef | null;
-  confTotal: number | null;
-  confMatchedCount: number;
+  confSummary: ConfSummaryRef | null;
   competitorBids: CompetitorBidCol[];
   itemMarketTotal: number | null;
   itemMarketBreakdown: CostBreakdown;
@@ -116,14 +125,14 @@ export function TotalComparison({
   partnerTotal,
   partnerCostBreakdown,
   summary,
-  confTotal,
-  confMatchedCount,
+  confSummary,
   competitorBids,
   itemMarketTotal,
   itemMarketBreakdown,
   itemTotalCount,
   itemMatchedCount,
 }: Props) {
+  const confTotal = confSummary?.confTotalCost ?? null;
   const summaryDev = calcDeviation(partnerTotal, summary?.totalCost ?? null);
   const confDev = calcDeviation(partnerTotal, confTotal);
   const itemDev = calcDeviation(partnerTotal, itemMarketTotal);
@@ -147,6 +156,7 @@ export function TotalComparison({
   const breakdownRows: Array<{
     label: string;
     partner: number | null;
+    conf: number | null;
     summary: number | null;
     competitors: (number | null)[];
     item: number | null;
@@ -154,6 +164,7 @@ export function TotalComparison({
     {
       label: "재료비",
       partner: partnerCostBreakdown.materialCost,
+      conf: confSummary?.confMaterialCost ?? null,
       summary: summary?.materialCost ?? null,
       competitors: displayCompetitorCols.map((b) => b.materialCost),
       item: itemMarketBreakdown.materialCost,
@@ -161,6 +172,7 @@ export function TotalComparison({
     {
       label: "노무비",
       partner: partnerCostBreakdown.laborCost,
+      conf: confSummary?.confLaborCost ?? null,
       summary: summary?.laborCost ?? null,
       competitors: displayCompetitorCols.map((b) => b.laborCost),
       item: itemMarketBreakdown.laborCost,
@@ -168,6 +180,7 @@ export function TotalComparison({
     {
       label: "경비",
       partner: partnerCostBreakdown.expenseCost,
+      conf: confSummary?.confExpenseCost ?? null,
       summary: summary?.expenseCost ?? null,
       competitors: displayCompetitorCols.map((b) => b.expenseCost),
       item: itemMarketBreakdown.expenseCost,
@@ -175,8 +188,9 @@ export function TotalComparison({
   ];
 
   const summarySubLabel = summary ? "단가 자료 합계" : "매칭 자료 없음";
-  const confSubLabel =
-    confMatchedCount > 0 ? `매칭 ${confMatchedCount}건·단가×수량` : "매칭 없음";
+  const confSubLabel = confSummary
+    ? `매칭: ${confSummary.confName}${confSummary.confSpec ? ` · ${confSummary.confSpec}` : ""}`
+    : "매칭 없음";
   const itemSubLabel =
     itemTotalCount === 0
       ? "라인 아이템 없음"
@@ -267,7 +281,7 @@ export function TotalComparison({
                 key={r.label}
                 label={r.label}
                 partner={r.partner}
-                conf={null}
+                conf={r.conf}
                 summary={r.summary}
                 competitors={r.competitors}
                 item={r.item}

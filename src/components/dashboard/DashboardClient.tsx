@@ -5,7 +5,7 @@ import { DashboardSummary, type DashboardFilter } from "./DashboardSummary";
 import { QuoteList } from "./QuoteList";
 
 /**
- * 검토 요청 목록의 filter 상태를 들고 있는 클라이언트 wrapper.
+ * 단가 검토 히스토리의 filter 상태를 들고 있는 클라이언트 wrapper.
  * - 상단 4개 큰 카드 = 필터 버튼 (전체 / 진행 중 / 완료 / 실패)
  * - 하단 견적 리스트 = 선택된 필터로 조회
  */

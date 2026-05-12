@@ -57,17 +57,16 @@ interface PriceSummaryCandidate extends PriceSummaryInfo {
   method: "embedding" | "deterministic";
 }
 
-interface ConfItem {
-  id: number;
-  rowIndex: number;
-  itemName: string;
-  spec: string | null;
-  unit: string | null;
-  quantity: number | null;
-  unitPrice: number | null;
-  confUnitPrice: number | null;
-  matchedConfidence: number | null;
-  deviationPct: number | null;
+interface ConfSummaryData {
+  confId: number;
+  confName: string;
+  confSpec: string | null;
+  confUnit: string | null;
+  confTotalCost: number | null;
+  confMaterialCost: number | null;
+  confLaborCost: number | null;
+  confExpenseCost: number | null;
+  confidence: number;
 }
 
 interface CompetitorBid {
@@ -162,9 +161,7 @@ export interface AnalyzePageClientProps {
   partnerTotal: number | null;
   partnerCostBreakdown: CostBreakdown;
   priceSummary: PriceSummaryInfo | null;
-  confItems: ConfItem[];
-  confTotal: number | null;
-  confMatchedCount: number;
+  confSummary: ConfSummaryData | null;
   competitorBids: CompetitorBid[];
   itemMarketTotal: number | null;
   itemMarketBreakdown: CostBreakdown;
@@ -413,8 +410,7 @@ function SummaryTab({
   partnerTotal,
   partnerCostBreakdown,
   priceSummary,
-  confTotal,
-  confMatchedCount,
+  confSummary,
   competitorBids,
   itemMarketTotal,
   itemMarketBreakdown,
@@ -424,7 +420,7 @@ function SummaryTab({
   showConfirmTrigger,
 }: Omit<
   AnalyzePageClientProps,
-  "confItems" | "matchedItems" | "quotationName" | "quotationSpec"
+  "matchedItems" | "quotationName" | "quotationSpec"
 > & { showConfirmTrigger?: boolean }) {
   return (
     <div className="space-y-6">
@@ -435,8 +431,7 @@ function SummaryTab({
             partnerTotal={partnerTotal}
             partnerCostBreakdown={partnerCostBreakdown}
             summary={priceSummary}
-            confTotal={confTotal}
-            confMatchedCount={confMatchedCount}
+            confSummary={confSummary}
             competitorBids={competitorBids}
             itemMarketTotal={itemMarketTotal}
             itemMarketBreakdown={itemMarketBreakdown}
@@ -466,19 +461,41 @@ function SummaryTab({
 
 // ── DB단가 탭 ──────────────────────────────────────
 
-function DbTab({ confItems }: { confItems: ConfItem[] }) {
-  const matched = confItems.filter((it) => it.confUnitPrice != null);
-  const partnerMatchedTotal = matched.reduce(
-    (a, it) => a + (it.unitPrice ?? 0) * (it.quantity ?? 1),
-    0
+function DbCompareRow({
+  label,
+  partner,
+  conf,
+}: {
+  label: string;
+  partner: number | null;
+  conf: number | null;
+}) {
+  const dev =
+    partner != null && conf != null && conf !== 0
+      ? ((partner - conf) / conf) * 100
+      : null;
+  return (
+    <tr className="border-t border-slate-100 hover:bg-slate-50/40">
+      <td className="py-2.5 pl-5 pr-3 text-xs font-semibold text-slate-600">{label}</td>
+      <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-800">{fmt(partner)}</td>
+      <td className="py-2.5 px-3 text-right font-mono tabular-nums font-semibold text-slate-800">{fmt(conf)}</td>
+      <td className="py-2.5 px-3 text-right"><DevBadge pct={dev} /></td>
+    </tr>
   );
-  const confMatchedTotal = matched.reduce(
-    (a, it) => a + (it.confUnitPrice ?? 0) * (it.quantity ?? 1),
-    0
-  );
-  const devTotal =
-    confMatchedTotal > 0
-      ? ((partnerMatchedTotal - confMatchedTotal) / confMatchedTotal) * 100
+}
+
+function DbTab({
+  partnerTotal,
+  partnerCostBreakdown,
+  confSummary,
+}: {
+  partnerTotal: number | null;
+  partnerCostBreakdown: CostBreakdown;
+  confSummary: ConfSummaryData | null;
+}) {
+  const totalDev =
+    partnerTotal != null && confSummary?.confTotalCost != null && confSummary.confTotalCost !== 0
+      ? ((partnerTotal - confSummary.confTotalCost) / confSummary.confTotalCost) * 100
       : null;
 
   return (
@@ -488,158 +505,78 @@ function DbTab({ confItems }: { confItems: ConfItem[] }) {
           <Lock size={18} className="text-slate-500" /> 사내 DB 단가 검토 결과
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          협력사 견적 항목을 사내 DB 단가와 항목별로 비교합니다.
+          공종명으로 사내 DB에서 유사 조(組)를 자동 매칭하여 협력사 견적 합계(재료비·노무비·경비)와 비교합니다.
         </p>
       </div>
 
-      {matched.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          {(
-            [
-              {
-                label: "협력사 합계 (매칭항목)",
-                val: partnerMatchedTotal,
-                badge: undefined as number | undefined,
-                cls: "text-slate-800",
-              },
-              {
-                label: "사내 DB 단가 합계",
-                val: confMatchedTotal,
-                badge: undefined,
-                cls: "text-slate-800 font-semibold",
-              },
-              {
-                label: "편차",
-                val: null,
-                badge: devTotal ?? undefined,
-                cls: "",
-              },
-            ] as {
-              label: string;
-              val: number | null;
-              badge: number | undefined;
-              cls: string;
-            }[]
-          ).map(({ label, val, badge, cls }) => (
-            <div
-              key={label}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3"
-            >
-              <div className="text-[11px] text-slate-400 mb-1">{label}</div>
-              {badge !== undefined ? (
-                <div className="text-sm font-bold">
-                  <DevBadge pct={badge} />
-                </div>
-              ) : (
-                <div className={`text-sm font-mono font-bold ${cls}`}>
-                  {val != null && val > 0 ? fmt(val) : "-"}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {matched.length === 0 ? (
+      {!confSummary ? (
         <div className="text-xs text-slate-500 border border-slate-200 bg-slate-50 rounded p-3">
-          사내 DB와 매칭된 항목이 없습니다.
+          사내 DB에 매칭 가능한 조(組)가 없습니다. DB관리 &gt; 사내 DB 단가 탭에서 비교 파일을 등록하세요.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 sticky top-0">
-              <tr>
-                <th className="text-left p-2 font-medium text-slate-600 text-xs">
-                  항목명
-                </th>
-                <th className="text-left p-2 font-medium text-slate-600 text-xs">
-                  규격
-                </th>
-                <th className="text-right p-2 font-medium text-slate-600 text-xs">
-                  수량
-                </th>
-                <th className="text-right p-2 font-medium text-slate-600 text-xs">
-                  협력사 단가
-                </th>
-                <th className="text-right p-2 font-medium text-slate-600 text-xs">
-                  사내 DB 단가
-                </th>
-                <th className="text-right p-2 font-medium text-slate-600 text-xs">
-                  편차
-                </th>
-                <th className="text-center p-2 font-medium text-slate-600 text-xs">
-                  신뢰도
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {matched.map((it) => {
-                const dev =
-                  it.confUnitPrice != null &&
-                  it.unitPrice != null &&
-                  it.unitPrice !== 0
-                    ? ((it.unitPrice - it.confUnitPrice) / it.confUnitPrice) *
-                      100
-                    : null;
-                return (
-                  <tr
-                    key={it.id}
-                    className="border-t border-slate-100 hover:bg-slate-50"
-                  >
-                    <td
-                      className="p-2 text-slate-800 font-medium max-w-[180px] truncate"
-                      title={it.itemName}
-                    >
-                      {it.itemName}
-                    </td>
-                    <td className="p-2 text-slate-500 text-xs max-w-[120px] truncate">
-                      {it.spec ?? "-"}
-                    </td>
-                    <td className="p-2 text-right font-mono text-slate-500 text-xs">
-                      {it.quantity ?? "-"}
-                    </td>
-                    <td className="p-2 text-right font-mono text-slate-700">
-                      {fmt(it.unitPrice)}
-                    </td>
-                    <td className="p-2 text-right font-mono font-semibold text-slate-800">
-                      {fmt(it.confUnitPrice)}
-                    </td>
-                    <td className="p-2 text-right">
-                      <DevBadge pct={dev} />
-                    </td>
-                    <td className="p-2 text-center">
-                      {it.matchedConfidence != null ? (
-                        <ConfBadge conf={it.matchedConfidence} />
-                      ) : (
-                        <span className="text-slate-400 text-xs">-</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-slate-300 bg-slate-50">
-                <td
-                  colSpan={3}
-                  className="p-2 text-xs font-semibold text-slate-600"
-                >
-                  합계
-                </td>
-                <td className="p-2 text-right font-mono font-bold text-slate-800">
-                  {fmt(partnerMatchedTotal)}
-                </td>
-                <td className="p-2 text-right font-mono font-bold text-slate-800">
-                  {fmt(confMatchedTotal)}
-                </td>
-                <td className="p-2 text-right">
-                  <DevBadge pct={devTotal} />
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <>
+          {/* 매칭된 조 정보 */}
+          <div className="bg-rose-50 border border-rose-200 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[11px] text-rose-500 font-semibold uppercase tracking-wide mb-0.5">매칭된 DB 조(組)</div>
+              <div className="font-semibold text-slate-800 text-sm truncate">
+                {confSummary.confName}
+                {confSummary.confSpec ? (
+                  <span className="ml-1.5 text-slate-500 font-normal text-xs">{confSummary.confSpec}</span>
+                ) : null}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <ConfBadge conf={confSummary.confidence} />
+              <div className="text-[10px] text-slate-400 mt-0.5">유사도</div>
+            </div>
+          </div>
+
+          {/* 합계 편차 요약 카드 */}
+          <div className="grid grid-cols-3 gap-3">
+            {([
+              { label: "협력사 견적 합계", val: partnerTotal, cls: "text-slate-800" },
+              { label: "사내 DB 단가 합계", val: confSummary.confTotalCost, cls: "text-slate-800 font-semibold" },
+              { label: "편차", val: null, badge: totalDev ?? undefined },
+            ] as { label: string; val: number | null; badge?: number; cls?: string }[]).map(({ label, val, badge, cls }) => (
+              <div key={label} className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+                <div className="text-[11px] text-slate-400 mb-1">{label}</div>
+                {badge !== undefined ? (
+                  <div className="text-sm font-bold"><DevBadge pct={badge} /></div>
+                ) : (
+                  <div className={`text-sm font-mono font-bold ${cls ?? ""}`}>{fmt(val)}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* 항목별 비교 테이블 */}
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full text-sm border-collapse">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="text-left py-2 pl-5 pr-3 text-[11px] uppercase tracking-wide text-slate-500 font-semibold w-24 border-b border-slate-200">항목</th>
+                  <th className="text-right py-2 px-3 text-[11px] uppercase tracking-wide text-slate-500 font-semibold border-b border-slate-200">협력사 견적</th>
+                  <th className="text-right py-2 px-3 text-[11px] uppercase tracking-wide text-slate-500 font-semibold border-b border-slate-200">사내 DB 단가</th>
+                  <th className="text-right py-2 px-3 text-[11px] uppercase tracking-wide text-slate-500 font-semibold border-b border-slate-200">편차</th>
+                </tr>
+              </thead>
+              <tbody>
+                <DbCompareRow label="재료비" partner={partnerCostBreakdown.materialCost} conf={confSummary.confMaterialCost} />
+                <DbCompareRow label="노무비" partner={partnerCostBreakdown.laborCost} conf={confSummary.confLaborCost} />
+                <DbCompareRow label="경비" partner={partnerCostBreakdown.expenseCost} conf={confSummary.confExpenseCost} />
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-200">
+                  <td className="py-3 pl-5 pr-3 text-sm font-bold text-slate-700">합계</td>
+                  <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-slate-900">{fmt(partnerTotal)}</td>
+                  <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-slate-900">{fmt(confSummary.confTotalCost)}</td>
+                  <td className="py-3 px-3 text-right"><DevBadge pct={totalDev} /></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </>
       )}
     </section>
   );
@@ -1466,9 +1403,7 @@ export function AnalyzePageClient(props: AnalyzePageClientProps) {
     partnerTotal,
     partnerCostBreakdown,
     priceSummary,
-    confItems,
-    confTotal,
-    confMatchedCount,
+    confSummary,
     competitorBids,
     itemMarketTotal,
     itemMarketBreakdown,
@@ -1503,8 +1438,7 @@ export function AnalyzePageClient(props: AnalyzePageClientProps) {
             partnerTotal={partnerTotal}
             partnerCostBreakdown={partnerCostBreakdown}
             priceSummary={priceSummary}
-            confTotal={confTotal}
-            confMatchedCount={confMatchedCount}
+            confSummary={confSummary}
             competitorBids={competitorBids}
             itemMarketTotal={itemMarketTotal}
             itemMarketBreakdown={itemMarketBreakdown}
@@ -1514,7 +1448,13 @@ export function AnalyzePageClient(props: AnalyzePageClientProps) {
             showConfirmTrigger={showConfirmTrigger}
           />
         )}
-        {activeTab === "db" && <DbTab confItems={confItems} />}
+        {activeTab === "db" && (
+          <DbTab
+            partnerTotal={partnerTotal}
+            partnerCostBreakdown={partnerCostBreakdown}
+            confSummary={confSummary}
+          />
+        )}
         {activeTab === "actual" && (
           <ActualTab
             quotationId={quotation.id}

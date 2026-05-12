@@ -4,7 +4,7 @@ import {
   cosineSimilarity,
   embedText,
 } from "../openai/embed";
-import { specSimilarity } from "./normalize";
+import { specSimilarity, normalizeName } from "./normalize";
 
 const WAGE_CATE_LABELS: Record<string, string> = {
   "701111": "공사부문",
@@ -93,7 +93,11 @@ export async function matchToMarketPrice(
   const cleanName = itemName.trim();
   if (!cleanName) return EMPTY;
 
-  const queryText = buildEmbeddingText(cleanName);
+  // "ST'L PIPE(구조용각형강관)" 형태처럼 괄호 안에 한국어 재질명이 있으면
+  // 그 부분을 임베딩 텍스트로 우선 사용. DB 에는 한국어 단독으로 저장되어 있어
+  // 혼합 언어 쿼리보다 순수 한국어로 임베딩해야 cosine 이 올바르게 정렬된다.
+  const koreanParen = cleanName.match(/\(([가-힣\s·×]+)\)/)?.[1]?.trim();
+  const queryText = buildEmbeddingText(koreanParen ?? cleanName);
   let queryVec: number[] | null = null;
   try {
     queryVec = await embedText(queryText);
@@ -101,7 +105,14 @@ export async function matchToMarketPrice(
     /* ignore — deterministic 단독으로 진행 */
   }
 
-  const candidatePool = await loadCandidatePool(cleanName, queryVec !== null);
+  // 한국어 괄호 없으면 약자 토큰(AL, SS 등)으로 후보풀 보강 검색
+  const abbrevKeyword =
+    koreanParen ??
+    (cleanName.match(/\b([A-Za-z]{2,5})\b/g) ?? [])
+      .map((t) => t.toUpperCase())
+      .find((t) => !ACRONYM_STOPLIST.has(t)) ??
+    null;
+  const candidatePool = await loadCandidatePool(cleanName, queryVec !== null, abbrevKeyword);
   if (candidatePool.length === 0) return EMPTY;
 
   type Scored = {
@@ -193,40 +204,56 @@ export async function matchToMarketPrice(
  */
 async function loadCandidatePool(
   cleanName: string,
-  embeddingsAvailable: boolean
+  embeddingsAvailable: boolean,
+  koreanKeyword: string | null = null
 ): Promise<CandidateRow[]> {
+  const priceSelect = {
+    id: true,
+    itemName: true,
+    spec: true,
+    unit: true,
+    price: true,
+    region: true,
+    embedding: true,
+  } as const;
+
   if (embeddingsAvailable) {
-    const [prices, wages] = await Promise.all([
+    const [recentPrices, targetedPrices, wages] = await Promise.all([
       prisma.priceHistory.findMany({
-        select: {
-          id: true,
-          itemName: true,
-          spec: true,
-          price: true,
-          region: true,
-          embedding: true,
-        },
+        select: priceSelect,
         orderBy: { fetchedAt: "desc" },
         take: MAX_CANDIDATES,
       }),
+      // 괄호 한국어 키워드로 직접 검색 — 최신 2000건 바깥에 있어도 확보
+      koreanKeyword
+        ? prisma.priceHistory.findMany({
+            select: priceSelect,
+            where: { itemName: { contains: koreanKeyword } },
+            orderBy: { fetchedAt: "desc" },
+            take: 100,
+          })
+        : Promise.resolve([] as Awaited<ReturnType<typeof prisma.priceHistory.findMany<{ select: typeof priceSelect }>>>),
       prisma.wageHistory.findMany({
-        select: {
-          id: true,
-          jobName: true,
-          cateCd: true,
-          price: true,
-          embedding: true,
-        },
+        select: { id: true, jobName: true, cateCd: true, price: true, embedding: true },
         orderBy: { fetchedAt: "desc" },
         take: MAX_CANDIDATES,
       }),
     ]);
-    const priceRows: CandidateRow[] = prices.map((p) => ({
+
+    // 중복 제거 — targeted 결과를 앞에 배치해 동점 시 우선
+    const seenIds = new Set<number>();
+    const allPrices = [...targetedPrices, ...recentPrices].filter((p) => {
+      if (seenIds.has(p.id)) return false;
+      seenIds.add(p.id);
+      return true;
+    });
+
+    const priceRows: CandidateRow[] = allPrices.map((p) => ({
       id: p.id,
       source: "price",
       itemName: p.itemName,
       spec: p.spec,
-      price: p.price,
+      price: convertMT(p.price, p.unit),
       region: p.region,
       embedding: p.embedding,
     }));
@@ -243,9 +270,10 @@ async function loadCandidatePool(
   }
 
   // deterministic 단독 — 이름 부분일치 prefilter
+  const keyword = koreanKeyword ?? cleanName;
   const [prices, wages] = await Promise.all([
-    findPriceByPrefilter(cleanName, 100),
-    findWageByPrefilter(cleanName, 100),
+    findPriceByPrefilter(keyword, 100),
+    findWageByPrefilter(keyword, 100),
   ]);
   return [...prices, ...wages];
 }
@@ -258,6 +286,7 @@ async function findPriceByPrefilter(
     id: true,
     itemName: true,
     spec: true,
+    unit: true,
     price: true,
     region: true,
     embedding: true,
@@ -287,7 +316,7 @@ async function findPriceByPrefilter(
     source: "price" as const,
     itemName: p.itemName,
     spec: p.spec,
-    price: p.price,
+    price: convertMT(p.price, p.unit),
     region: p.region,
     embedding: p.embedding,
   }));
@@ -336,17 +365,32 @@ async function findWageByPrefilter(
 }
 
 /**
- * 영문 짧은 토큰(2~6자) 정확 일치 보너스.
+ * 영문 약자 보너스에서 제외할 포괄적 단어 목록.
+ * 이 단어들은 건설 자재에서 너무 흔해 매칭 신호로 가치가 없음.
+ * AL, PVC, SS 같은 재질 약자와 달리 PIPE·TUBE 등은 여러 전혀 다른 품목에
+ * 공통으로 등장해 오히려 오매칭을 유발한다.
+ */
+const ACRONYM_STOPLIST = new Set([
+  "PIPE", "TUBE", "BAR", "WIRE", "BOLT", "NUT", "PIN", "ROD",
+  "PLATE", "SHEET", "COIL", "BAND", "ANGLE", "BEAM", "RAIL",
+  "CABLE", "HOSE", "JOINT", "VALVE", "FLANGE",
+]);
+
+/**
+ * 영문 짧은 토큰(3~6자) 정확 일치 보너스.
  * - 도메인 약자(AL, PB, SS, MDF, PVC, THK, FRP 등) 가 임베딩 cosine 에는 약하게 잡히지만
  *   실제 의미적 일치 신호로는 매우 강함. itemName 끼리 같은 토큰이 있으면 가산.
  * - 토큰 1개당 ACRONYM_TOKEN_BONUS, 누적 ACRONYM_BONUS_CAP 까지.
  * - 한글/특수문자는 token 분리에서 자동 제외 (영문/숫자 연속만).
+ * - ACRONYM_STOPLIST 에 있는 포괄적 단어는 제외 (PIPE, TUBE 등 오매칭 방지).
  */
 function shortAsciiTokens(s: string): Set<string> {
-  const tokens = s.match(/[A-Za-z0-9]+/g) ?? [];
+  const tokens = s.match(/[A-Za-z][A-Za-z0-9]*/g) ?? [];
   const out = new Set<string>();
   for (const t of tokens) {
-    if (t.length >= 2 && t.length <= 6) out.add(t.toUpperCase());
+    const up = t.toUpperCase();
+    // min 2자 유지 — AL·SS·PB 같은 2자 재질 약자 포함, 포괄 단어(PIPE 등)는 stoplist 제외
+    if (t.length >= 2 && t.length <= 6 && !ACRONYM_STOPLIST.has(up)) out.add(up);
   }
   return out;
 }
@@ -375,7 +419,7 @@ function deterministicScore(
   itemB: string,
   specB: string | null
 ): number {
-  const nameScore = stringSimilarity(itemA, itemB) * 0.7;
+  const nameScore = stringSimilarity(normalizeName(itemA), normalizeName(itemB)) * 0.7;
   const specScore = specA && specB ? specSimilarity(specA, specB) * 0.3 : 0;
   return nameScore + specScore;
 }
@@ -410,4 +454,12 @@ function bigrams(s: string): Set<string> {
   const set = new Set<string>();
   for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
   return set;
+}
+
+/** DB 단위가 M/T(메트릭톤)이면 가격을 ÷1,000 하여 kg 기준으로 환산 */
+function convertMT(price: number | null, unit: string | null | undefined): number | null {
+  if (price == null) return null;
+  const u = (unit ?? "").trim().replace(/\s+/g, "").toUpperCase();
+  if (u === "M/T" || u === "MT") return price / 1000;
+  return price;
 }

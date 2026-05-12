@@ -69,7 +69,7 @@ export function ConfirmAction({
             확정 완료
           </div>
           <div className="text-xs text-emerald-700/80 mt-1.5 leading-relaxed">
-            현재 상태: <span className="font-mono">confirmed</span>. 검토 요청 목록의 “완료” 탭에서 보입니다.
+            현재 상태: <span className="font-mono">confirmed</span>. 단가 검토 히스토리의 “완료” 탭에서 보입니다.
           </div>
           <div className="text-xs text-slate-500 mt-2 inline-flex items-center gap-1">
             <RotateCcw size={11} />
@@ -88,7 +88,7 @@ export function ConfirmAction({
             검토 결과 확정
           </div>
           <div className="text-xs text-blue-700/80 mt-1.5 leading-relaxed">
-            확정 전까지는 검토 요청 목록의 “진행 중” 탭에 표시됩니다. 확정하면 “완료” 탭으로 이동합니다.
+            확정 전까지는 단가 검토 히스토리의 “진행 중” 탭에 표시됩니다. 확정하면 “완료” 탭으로 이동합니다.
           </div>
           <div className="text-xs text-slate-500 mt-2">
             현재 상태: <span className="font-mono">{status}</span>

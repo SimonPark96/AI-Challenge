@@ -82,7 +82,8 @@ export function numericSimilarity(a: number[], b: number[]): number {
       if (used.has(i)) continue;
       const vb = b[i];
       const denom = Math.max(Math.abs(va), Math.abs(vb));
-      const sim = denom === 0 ? 1 : Math.max(0, 1 - Math.abs(va - vb) / denom);
+      // 2× 가중치로 큰 차이에 더 엄격하게 패널티: 100 vs 150 → 0.333 (기존 0.667)
+      const sim = denom === 0 ? 1 : Math.max(0, 1 - 2 * Math.abs(va - vb) / denom);
       if (sim > best) {
         best = sim;
         bestIdx = i;

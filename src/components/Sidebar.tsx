@@ -37,7 +37,7 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
-  { href: "/dashboard", label: "검토 요청 목록", icon: LayoutGrid },
+  { href: "/dashboard", label: "단가 검토 히스토리", icon: LayoutGrid },
   { href: "/db", label: "DB 관리", icon: Database },
 ];
 
@@ -83,19 +83,6 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 py-4 px-3 space-y-0.5">
-        {/* 검토 요청 목록 */}
-        <Link
-          href="/dashboard"
-          className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors ${
-            pathname === "/dashboard"
-              ? "bg-white text-[#001E62] font-semibold shadow-sm"
-              : "text-slate-200 hover:bg-white/10 hover:text-white"
-          }`}
-        >
-          <LayoutGrid size={16} />
-          <span>검토 요청 목록</span>
-        </Link>
-
         {/* 단가 검토 요청 (확장형) */}
         <div>
           <Link
@@ -151,6 +138,19 @@ export function Sidebar() {
             </div>
           )}
         </div>
+
+        {/* 단가 검토 히스토리 */}
+        <Link
+          href="/dashboard"
+          className={`flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors ${
+            pathname === "/dashboard"
+              ? "bg-white text-[#001E62] font-semibold shadow-sm"
+              : "text-slate-200 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <LayoutGrid size={16} />
+          <span>단가 검토 히스토리</span>
+        </Link>
 
         {/* DB 관리 등 */}
         {MENU.filter((m) => m.href !== "/dashboard").map((m) => {

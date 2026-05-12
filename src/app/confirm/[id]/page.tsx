@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { matchQuoteToConfidential } from "@/lib/quote/confidential-match";
 import { StepIndicator } from "@/components/StepIndicator";
 import { QuoteSummary } from "@/components/QuoteSummary";
 import { ReviewDecisionCard } from "@/components/ReviewDecisionCard";
@@ -64,11 +65,19 @@ export default async function ConfirmByIdPage({
           ? { label: "재확인 권고", tone: "blue" }
           : { label: "적정 단가", tone: "emerald" };
 
-  const confMatched = items.filter((it) => it.confUnitPrice != null);
-  const confTotal =
-    confMatched.length > 0
-      ? confMatched.reduce((a, it) => a + (it.confUnitPrice ?? 0) * (it.quantity ?? 1), 0)
+  // 사내 DB 단가: 02.AI 자동비교와 동일한 방식으로 공종명/프로젝트명으로 조(組) 매칭
+  const workType =
+    typeof meta?.workType === "string" && meta.workType.trim()
+      ? meta.workType.trim()
       : null;
+  const quotationName =
+    typeof meta?.projectName === "string" ? meta.projectName : null;
+  const quotationSpec =
+    typeof meta?.spec === "string" ? meta.spec : null;
+  const matchName = workType ?? quotationName;
+  const confSummary = matchName
+    ? await matchQuoteToConfidential(matchName, quotationSpec).catch(() => null)
+    : null;
 
   interface CompetitorBidCol {
     id: number;
@@ -127,7 +136,13 @@ export default async function ConfirmByIdPage({
             totalPrice: it.totalPrice,
             marketPrice: it.marketPrice,
           }))}
-          dbTotal={confTotal}
+          dbSummary={confSummary ? {
+            name: confSummary.confName,
+            totalCost: confSummary.confTotalCost,
+            materialCost: confSummary.confMaterialCost,
+            laborCost: confSummary.confLaborCost,
+            expenseCost: confSummary.confExpenseCost,
+          } : null}
           actualSummary={
             quotation.priceSummary
               ? {
@@ -159,7 +174,7 @@ export default async function ConfirmByIdPage({
           href="/dashboard"
           className="inline-flex items-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 px-5 py-2.5 rounded text-sm font-medium"
         >
-          검토 요청 목록으로 이동
+          단가 검토 히스토리으로 이동
         </Link>
       </div>
 

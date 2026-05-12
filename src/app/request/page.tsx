@@ -66,7 +66,7 @@ export default function RequestPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-              <span>📄</span> 협력사 견적 요청
+              <span>📄</span> 검토 대상 단가 업로드
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               파일을 올리면 AI가 헤더 정보·라인 아이템·재료비/노무비/경비 합계를

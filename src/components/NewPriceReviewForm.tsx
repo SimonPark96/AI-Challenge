@@ -45,8 +45,14 @@ export interface QuotationItemData {
 interface Props {
   quotationItems?: QuotationItemData[];
   quotationFileName?: string;
-  /** DB단가 탭 최종 합계 */
-  dbTotal?: number | null;
+  /** 02.AI 자동비교 > 사내 DB 단가 검토 결과 — 매칭된 조(組) 전체 내역 */
+  dbSummary?: {
+    name?: string | null;
+    totalCost?: number | null;
+    materialCost?: number | null;
+    laborCost?: number | null;
+    expenseCost?: number | null;
+  } | null;
   /** 실적단가 탭 최종 선택 항목 */
   actualSummary?: {
     name?: string | null;
@@ -372,7 +378,7 @@ function fmtSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
-export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal, actualSummary, competitorBids }: Props) {
+export function NewPriceReviewForm({ quotationItems, quotationFileName, dbSummary, actualSummary, competitorBids }: Props) {
   const [projectName, setProjectName] = useState("");
   const [reviewReason, setReviewReason] = useState("");
 
@@ -384,8 +390,14 @@ export function NewPriceReviewForm({ quotationItems, quotationFileName, dbTotal,
     const newMark = MARK_CYCLE[(idx + 1) % MARK_CYCLE.length];
     setBasisMarks(prev => ({ ...prev, [key]: newMark }));
     if (newMark === "O" || newMark === "△") {
-      if (key === "db" && dbTotal != null) {
-        setDbRows([makeRow({ name: "DB단가 합계", totalAmount: fmtStr(dbTotal) })]);
+      if (key === "db" && dbSummary) {
+        setDbRows([makeRow({
+          name: dbSummary.name ?? "사내 DB 단가",
+          materialCost: fmtStr(dbSummary.materialCost),
+          laborCost: fmtStr(dbSummary.laborCost),
+          expenseCost: fmtStr(dbSummary.expenseCost),
+          totalAmount: fmtStr(dbSummary.totalCost),
+        })]);
       } else if (key === "actual" && actualSummary) {
         setActualRows([makeRow({
           name: actualSummary.name ?? "실적단가",
