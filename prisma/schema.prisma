@@ -1,0 +1,314 @@
+// 건축 자재 적정 단가 검토 시스템 — 1단계 스키마
+// 모델 구조:
+//   Material      : 사내 표준 자재명/규격 마스터 (시맨틱 매칭의 기준)
+//   ScrapeRun     : 사이트별 스크래핑 1회분의 원본 JSON 기록 (감사/재처리용)
+//   PriceHistory  : ScrapeRun 에서 정규화된 단가 레코드 (조회/비교용)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Material {
+  id        Int      @id @default(autoincrement())
+  name      String
+  spec      String?
+  unit      String?
+  aliases   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prices PriceHistory[]
+
+  @@unique([name, spec])
+  @@index([name])
+}
+
+model ScrapeRun {
+  id         Int      @id @default(autoincrement())
+  source     String
+  keyword    String
+  sourceUrl  String?
+  fetchedAt  DateTime
+  rawHeaders Json
+  rawRows    Json
+  createdAt  DateTime @default(now())
+
+  prices PriceHistory[]
+
+  @@index([source, fetchedAt])
+  @@index([keyword])
+}
+
+model PriceHistory {
+  id          Int      @id @default(autoincrement())
+  scrapeRunId Int
+  materialId  Int?
+  source      String
+  itemName    String
+  spec        String?
+  unit        String?
+  region      String?
+  price       Float?
+  currency    String   @default("KRW")
+  extras      Json?
+  embedding   Json? // text-embedding-3-small 1536차원 (number[])
+  fetchedAt   DateTime
+  createdAt   DateTime @default(now())
+
+  scrapeRun     ScrapeRun       @relation(fields: [scrapeRunId], references: [id], onDelete: Cascade)
+  material      Material?       @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  matchedItems  QuotationItem[]
+
+  @@index([materialId, fetchedAt])
+  @@index([source, fetchedAt])
+  @@index([scrapeRunId])
+}
+
+// 외부 단가 자료 일괄 등록 결과 (명칭/규격 단위의 단가합계).
+// PriceHistory 와 분리: 매칭 흐름이 다름 — 협력사 일위대가의 합계 비교용.
+model PriceSummary {
+  id                Int       @id @default(autoincrement())
+  name              String
+  spec              String?
+  unit              String?
+  totalCost         Float?
+  materialCost      Float?
+  laborCost         Float?
+  expenseCost       Float?
+  sourceFile        String?
+  sourceVia         String? // "spreadsheet" | "image"
+  // 파일/프로젝트 단위 메타 (같은 import 안의 모든 행이 동일 값)
+  projectName       String?
+  businessDivision  String?
+  firstContractDate DateTime?
+  lastContractDate  DateTime?
+  rawRow            Json?
+  embedding         Json? // text-embedding-3-small 1536차원
+  fetchedAt         DateTime
+  createdAt         DateTime  @default(now())
+
+  matchedQuotations Quotation[]
+
+  @@index([name])
+  @@index([fetchedAt])
+}
+
+model Quotation {
+  id              Int       @id @default(autoincrement())
+  fileName        String
+  fileSize        Int
+  uploadedAt      DateTime  @default(now())
+  status          String    @default("pending") // pending|parsing|parsed|matched|compared|failed
+  errorMsg        String?
+  rawResponse     Json?
+  aiCommentary    String?
+  aiCommentaryAt  DateTime?
+
+  priceSummaryId Int?
+  priceSummary   PriceSummary? @relation(fields: [priceSummaryId], references: [id], onDelete: SetNull)
+
+  items       QuotationItem[]
+  bidRequests BidRequest[]
+
+  @@index([uploadedAt])
+  @@index([priceSummaryId])
+}
+
+// 노임단가 — KPI 의 wage_list 에서 카테고리별로 가져오는 직종별 일당 표.
+// 자재 PriceHistory 와 별도 — 매칭 흐름이 다르고, 단위/기준 필드가 직종 특화임.
+model WageRun {
+  id        Int      @id @default(autoincrement())
+  source    String   // "kpi-wage"
+  cateCd    String   // "701111" 등
+  sourceUrl String
+  fetchedAt DateTime
+  createdAt DateTime @default(now())
+
+  wages WageHistory[]
+
+  @@index([source, fetchedAt])
+  @@index([cateCd])
+}
+
+model WageHistory {
+  id          Int      @id @default(autoincrement())
+  wageRunId   Int
+  cateCd      String
+  jobName     String  // 직종명
+  price       Float?  // 단가 (콤마 제거 후 숫자, KRW)
+  unit        String? // 단위 (보통 "일")
+  basis       String? // 기준 (예: "2026년 01월")
+  description String? // 해설
+  embedding   Json?   // text-embedding-3-small 1536차원 (number[]) — 견적 매칭용
+  fetchedAt   DateTime
+  createdAt   DateTime @default(now())
+
+  wageRun      WageRun         @relation(fields: [wageRunId], references: [id], onDelete: Cascade)
+  matchedItems QuotationItem[]
+
+  @@index([wageRunId])
+  @@index([jobName])
+  @@index([cateCd, fetchedAt])
+}
+
+model QuotationItem {
+  id          Int    @id @default(autoincrement())
+  quotationId Int
+  rowIndex    Int
+  itemName    String
+  spec        String?
+  unit        String?
+  quantity    Float?
+  unitPrice   Float?
+  totalPrice  Float?
+
+  // 매칭/비교 결과 — 자재 또는 노임 둘 중 한쪽만 채워짐 (matchedSource 로 식별)
+  matchedSource     String? // "price" | "wage" — 어떤 풀에서 매칭됐는지
+  matchedPriceId    Int? // 자재 단가(PriceHistory) 매칭 시
+  matchedWageId     Int? // 노임 단가(WageHistory) 매칭 시
+  matchedConfidence Float? // 0..1
+  marketPrice       Float? // 매칭된 단가 (자재 또는 노임)
+  marketRegion      String? // 자재: 지역 / 노임: 카테고리 라벨 (공사부문/기타직종)
+  deviationPct      Float? // (unitPrice - marketPrice) / marketPrice * 100
+
+  // 기밀 단가 비교 결과
+  confPriceId      Int?    // ConfidentialPrice 매칭 시
+  confConfidence   Float?  // 0..1
+  confUnitPrice    Float?  // 매칭된 기밀 단가계
+  confDeviationPct Float?  // (unitPrice - confUnitPrice) / confUnitPrice * 100
+
+  // 매칭 진단(top 3 후보 + 점수 분해). 챗봇이 "왜 매칭됐어?" 답할 때 사용.
+  // MatchCandidateDebug[] subset 형식 — 자세한 스키마는 src/lib/quote/match.ts 참조.
+  matchDebug Json?
+
+  quotation    Quotation          @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  matchedPrice PriceHistory?      @relation(fields: [matchedPriceId], references: [id], onDelete: SetNull)
+  matchedWage  WageHistory?       @relation(fields: [matchedWageId], references: [id], onDelete: SetNull)
+  confPrice    ConfidentialPrice? @relation(fields: [confPriceId], references: [id], onDelete: SetNull)
+
+  @@index([quotationId])
+  @@index([matchedPriceId])
+  @@index([matchedWageId])
+  @@index([confPriceId])
+}
+
+// 내부 기밀 단가 — 복호화된 사내 기준 단가. 협력사 견적과 1차 비교에 사용.
+model ConfidentialPrice {
+  id           Int      @id @default(autoincrement())
+  name         String
+  spec         String?
+  unit         String?
+  materialCost Float?   // 재료비
+  laborCost    Float?   // 노무비
+  expenseCost  Float?   // 경비
+  totalCost    Float?   // 단가계
+  sourceFile   String?
+  embedding    Json?    // text-embedding-3-small 1536차원
+  fetchedAt    DateTime
+  createdAt    DateTime @default(now())
+
+  matchedItems QuotationItem[]
+
+  @@index([name])
+  @@index([fetchedAt])
+}
+
+// 공종 마스터 — 2계층 구조
+// parentId = null  → 대공종 (건축, 전기, 설비 …)
+// parentId = 대공종id → 세부공종 (골조공사, 마감공사 …)
+// 협력사(WorkTypeContact)는 세부공종에 붙음
+model WorkType {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String?
+  parentId    Int?              // null = 대공종
+  createdAt   DateTime          @default(now())
+
+  parent      WorkType?         @relation("WorkTypeTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    WorkType[]        @relation("WorkTypeTree")
+  contacts    WorkTypeContact[]
+  bidRequests BidRequest[]
+
+  @@index([parentId])
+}
+
+// 공종별 협력사 연락처
+model WorkTypeContact {
+  id          Int      @id @default(autoincrement())
+  workTypeId  Int
+  companyName String
+  email       String
+  contactName String?
+  phone       String?
+  createdAt   DateTime @default(now())
+
+  workType WorkType @relation(fields: [workTypeId], references: [id], onDelete: Cascade)
+
+  @@index([workTypeId])
+}
+
+// 타사에 발송한 견적 요청
+model BidRequest {
+  id          Int       @id @default(autoincrement())
+  quotationId Int?
+  workTypeId  Int?
+  companyName String?
+  title       String?
+  description String?
+  status      String    @default("draft") // draft|sent|received|compared
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  quotation    Quotation?    @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  workType     WorkType?     @relation(fields: [workTypeId], references: [id], onDelete: SetNull)
+  receivedBids ReceivedBid[]
+
+  @@index([quotationId])
+  @@index([workTypeId])
+}
+
+// 타사에서 수령한 견적서
+model ReceivedBid {
+  id           Int       @id @default(autoincrement())
+  bidRequestId Int
+  companyName  String?
+  fileName     String
+  fileSize     Int
+  status       String    @default("pending") // pending|parsing|parsed|compared|failed
+  errorMsg     String?
+  createdAt    DateTime  @default(now())
+
+  bidRequest BidRequest      @relation(fields: [bidRequestId], references: [id], onDelete: Cascade)
+  items      ReceivedBidItem[]
+
+  @@index([bidRequestId])
+}
+
+// 수령한 견적서의 라인 아이템
+model ReceivedBidItem {
+  id            Int     @id @default(autoincrement())
+  receivedBidId Int
+  rowIndex      Int
+  itemName      String
+  spec          String?
+  unit          String?
+  materialCost  Float?  // 재료비
+  laborCost     Float?  // 노무비
+  expenseCost   Float?  // 경비
+  totalCost     Float?  // 단가계
+
+  // 원본 협력사 견적 항목과 매칭 결과
+  origItemId       Int?    // QuotationItem.id
+  origDeviationPct Float?  // (totalCost - orig.unitPrice) / orig.unitPrice * 100
+  matchConfidence  Float?  // 0..1
+
+  receivedBid ReceivedBid @relation(fields: [receivedBidId], references: [id], onDelete: Cascade)
+
+  @@index([receivedBidId])
+}
